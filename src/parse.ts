@@ -49,7 +49,7 @@ type ParserEntityDefinition =
  */
 export function preprocess(
   messageDefinition: string,
-  importedDefinitions: Map<string, string> = new Map(),
+  importedDefinitions = new Map<string, string>(),
 ): string {
   return preprocessRecursive(messageDefinition, importedDefinitions, new Set())
 }
