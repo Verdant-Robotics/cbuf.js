@@ -44,11 +44,12 @@ type ParserEntityDefinition =
  * Strip comments, then resolve any #import statements in the message
  * definition, recursively, and return the resolved message definition.
  * @param messageDefinition The raw string message definition
+ * @param importedDefinitions A map from import paths to their content
  * @returns The resolved message definition
  */
 export function preprocess(
   messageDefinition: string,
-  importedDefinitions: Map<string, string>,
+  importedDefinitions = new Map<string, string>(),
 ): string {
   return preprocessRecursive(messageDefinition, importedDefinitions, new Set())
 }

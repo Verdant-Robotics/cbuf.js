@@ -1,4 +1,4 @@
-import { computeHashValue, parse as parseSchema } from "./parse"
+import { computeHashValue, parse as parseSchema, preprocess as preprocessSchema } from "./parse"
 import {
   createSchemaMaps,
   deserializeMessage,
@@ -11,6 +11,7 @@ export {
   createSchemaMaps,
   deserializeMessage,
   parseSchema,
+  preprocessSchema,
   serializedMessageSize,
   serializeMessage,
 }
