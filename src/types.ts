@@ -12,7 +12,7 @@ export type CbufMessageDefinition = MessageDefinition & {
   isEnum: boolean
   /** True if this is an `enum` definition annotated as `enum class` */
   isEnumClass?: boolean
-  /** True if this is a `struct` definition annoated as `@naked` */
+  /** True if this is a `struct` definition annotated with `@naked` */
   isNakedStruct?: boolean
 }
 
@@ -37,7 +37,7 @@ export type CbufValue =
   | string
   | CbufTypedArray
   | CbufArray
-  | Record<string, boolean | number | bigint | string | CbufTypedArray | CbufArray>
+  | { [fieldName: string]: CbufValue }
 
 export type CbufMessageData = {
   /** The fully qualified message name */

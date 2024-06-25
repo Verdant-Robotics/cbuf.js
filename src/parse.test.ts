@@ -416,5 +416,87 @@ describe("parse", () => {
         "Nested namespaces are not allowed",
       )
     })
+
+    it("should handle multiple namespaces", () => {
+      const result = parse(`
+namespace ns1 {
+  enum a { b }
+  struct c { a d; }
+}
+
+namespace ns2 {
+  enum e { f }
+  struct g { e h; ns2::e i; ns1::a j; ns1::c k; }
+}`)
+      expect(result).toEqual([
+        {
+          name: "ns1::a",
+          namespaces: ["ns1"],
+          hashValue: 0n,
+          isEnum: true,
+          isEnumClass: false,
+          definitions: [
+            {
+              name: "b",
+              isConstant: true,
+              type: "uint32",
+              value: 0,
+            },
+          ],
+        },
+        {
+          name: "ns1::c",
+          namespaces: ["ns1"],
+          hashValue: 2299624816536008030n,
+          isEnum: false,
+          definitions: [
+            {
+              type: "uint32",
+              name: "d",
+            },
+          ],
+        },
+        {
+          name: "ns2::e",
+          namespaces: ["ns2"],
+          hashValue: 0n,
+          isEnum: true,
+          isEnumClass: false,
+          definitions: [
+            {
+              name: "f",
+              isConstant: true,
+              type: "uint32",
+              value: 0,
+            },
+          ],
+        },
+        {
+          name: "ns2::g",
+          namespaces: ["ns2"],
+          hashValue: 3084739611297464190n,
+          isEnum: false,
+          definitions: [
+            {
+              type: "uint32",
+              name: "h",
+            },
+            {
+              type: "uint32",
+              name: "i",
+            },
+            {
+              type: "uint32",
+              name: "j",
+            },
+            {
+              type: "ns1::c",
+              name: "k",
+              isComplex: true,
+            },
+          ],
+        },
+      ])
+    })
   })
 })

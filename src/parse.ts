@@ -69,7 +69,7 @@ export function computeHashValue(
     }
 
     if (field.isComplex === true) {
-      const nestedHash = computeHashValue(nameToSchema, namespaces, field.type)
+      const nestedHash = computeHashValue(nameToSchema, msgdef.namespaces, field.type)
       buf.push(`${nestedHash} ${field.name};\n`)
     } else {
       buf.push(`${elementTypeToStrC(field.type)} ${field.name}; \n`) // The space is intentional
@@ -335,6 +335,7 @@ function parseEntities(
 function defaultValueTypeCheck(fieldName: string, typeName: string, element: DefaultValue) {
   switch (typeName) {
     case "string":
+    case "short_string":
       if (typeof element !== "string") {
         throw new Error(`Invalid default value "${element}" for string field (${fieldName})`)
       }

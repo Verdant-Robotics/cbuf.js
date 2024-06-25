@@ -176,7 +176,15 @@ function deserializeNakedMessage(
       const bufferOffset = view.byteOffset + offset + innerOffset
 
       switch (field.type) {
-        case "bool":
+        case "bool": {
+          const array = []
+          for (let i = 0; i < arrayLength; i++) {
+            array.push(view.getUint8(offset + innerOffset) !== 0)
+            innerOffset += 1
+          }
+          output[field.name] = array
+          break
+        }
         case "uint8":
           output[field.name] = typedArray(Uint8Array, view.buffer, bufferOffset, arrayLength)
           innerOffset += arrayLength
@@ -218,7 +226,7 @@ function deserializeNakedMessage(
           innerOffset += arrayLength * 8
           break
         default: {
-          // string arrau or nested struct array. Read each element individually and push onto an
+          // string array or nested struct array. Read each element individually and push onto an
           // array
           const array = []
           const fieldOutput: Record<string, unknown> = {}
@@ -363,6 +371,12 @@ function readBasicType(
     case "float64":
       message[field.name] = view.getFloat64(offset, true)
       return 8
+    case "short_string": {
+      const bytes = new Uint8Array(view.buffer, view.byteOffset + offset, 15)
+      const str = textDecoder.decode(bytes)
+      message[field.name] = str.split("\0").shift()
+      return 15
+    }
     case "string": {
       let curOffset = 0
       let length = field.upperBound
@@ -420,14 +434,14 @@ function serializedNakedMessageSize(
 ): number {
   let size = 0
   for (const field of msgdef.definitions) {
-    const value = message[field.name]
+    const value = message[field.name] ?? field.defaultValue
 
     if (field.isArray === true) {
       // Array field (fixed or variable length)
-      const isValueArray = Array.isArray(value)
+      const arrayValue = isArray(value) ? value : []
       let arrayLength = field.arrayLength
       if (arrayLength == undefined) {
-        arrayLength = isValueArray ? value.length : 0
+        arrayLength = arrayValue.length
         size += 4
       }
 
@@ -451,23 +465,27 @@ function serializedNakedMessageSize(
         case "float64":
           size += arrayLength * 8
           break
+        case "short_string":
+          size += arrayLength * 15
+          break
         case "string":
           if (field.arrayLength == undefined && field.upperBound == undefined) {
-            //
+            // Variable length string array. Each element has a 4-byte length prefix
             size += arrayLength * 4
-            if (Array.isArray(value)) {
-              for (const element of value) {
-                size += typeof element === "string" ? element.length : 0
-              }
+            for (const element of arrayValue) {
+              size += typeof element === "string" ? element.length : 0
             }
           }
           break
         default:
           // Nested struct array. Compute the size of each element individually
-          if (isValueArray) {
+          if (arrayValue.length > 0) {
             const nestedMsgdef = lookupMsgdef(nameToSchema, msgdef.namespaces, field.type)
-            for (const element of value as Record<string, unknown>[]) {
-              size += serializedNakedMessageSize(nameToSchema, nestedMsgdef, element)
+            for (const element of arrayValue) {
+              const nestedElement = (
+                element != undefined && typeof element === "object" ? element : {}
+              ) as Record<string, unknown>
+              size += serializedNakedMessageSize(nameToSchema, nestedMsgdef, nestedElement)
             }
           }
           break
@@ -480,11 +498,12 @@ function serializedNakedMessageSize(
           size += HEADER_SIZE
         }
 
-        size += serializedNakedMessageSize(
-          nameToSchema,
-          nestedMsgdef,
-          value as Record<string, unknown>,
-        )
+        // Check if `value` is an object
+        const nestedValue = (
+          value != undefined && typeof value === "object" ? value : {}
+        ) as Record<string, unknown>
+
+        size += serializedNakedMessageSize(nameToSchema, nestedMsgdef, nestedValue)
       } else {
         switch (field.type) {
           case "bool":
@@ -515,6 +534,9 @@ function serializedNakedMessageSize(
             size += length
             break
           }
+          case "short_string":
+            size += 15
+            break
           default:
             throw new Error(`Unsupported type ${field.type}`)
         }
@@ -601,29 +623,27 @@ function serializeNakedMessage(
 ): number {
   let innerOffset = 0
   for (const field of msgdef.definitions) {
-    const value = message[field.name]
+    const value = message[field.name] ?? field.defaultValue
 
     if (field.isArray === true) {
       // Array field (fixed or variable length)
-      const isValueArray = Array.isArray(value)
+      const arrayValue = isArray(value) ? value : []
       let arrayLength = field.arrayLength
       if (arrayLength == undefined) {
-        arrayLength = isValueArray ? value.length : 0
+        arrayLength = arrayValue.length
         view.setUint32(offset + innerOffset, arrayLength, true)
         innerOffset += 4
       }
 
-      if (isValueArray) {
-        for (let i = 0; i < arrayLength; i++) {
-          innerOffset += serializeNonArrayField(
-            nameToSchema,
-            msgdef.namespaces,
-            field,
-            value[i],
-            view,
-            offset + innerOffset,
-          )
-        }
+      for (let i = 0; i < arrayLength; i++) {
+        innerOffset += serializeNonArrayField(
+          nameToSchema,
+          msgdef.namespaces,
+          field,
+          arrayValue[i],
+          view,
+          offset + innerOffset,
+        )
       }
     } else {
       innerOffset += serializeNonArrayField(
@@ -678,7 +698,7 @@ function serializeNonArrayField(
       nestedMsgdef,
       value as Record<string, unknown>,
       view,
-      curOffset,
+      curOffset + innerOffset,
     )
   } else {
     switch (field.type) {
@@ -724,19 +744,33 @@ function serializeNonArrayField(
         innerOffset += 8
         break
       case "string": {
-        const isString = typeof value === "string"
         let length = field.upperBound
         if (length == undefined) {
-          length = isString ? value.length : 0
+          length = typeof value === "string" ? value.length : 0
           view.setUint32(curOffset + innerOffset, length, true)
           innerOffset += 4
         }
-        if (isString && value.length > 0) {
-          const bytes = textEncoder.encode(value)
+        if (length > 0) {
           const byteOffset = view.byteOffset + curOffset + innerOffset
-          new Uint8Array(view.buffer, byteOffset, length).set(bytes)
+          const dest = new Uint8Array(view.buffer, byteOffset, length)
+          if (typeof value === "string" && value.length > 0) {
+            const bytes = textEncoder.encode(value)
+            dest.set(bytes.slice(0, length))
+          } else {
+            dest.fill(0)
+          }
+          innerOffset += length
         }
-        innerOffset += length
+        break
+      }
+      case "short_string": {
+        const str = typeof value === "string" ? value : ""
+        const bytes = textEncoder.encode(str)
+        const byteOffset = view.byteOffset + curOffset
+        const dest = new Uint8Array(view.buffer, byteOffset, 15)
+        dest.fill(0)
+        dest.set(bytes.slice(0, 15))
+        innerOffset += 15
         break
       }
       default:
@@ -771,4 +805,8 @@ function getBigInt(value: unknown): bigint {
     return value ? 1n : 0n
   }
   return 0n
+}
+
+function isArray(value: unknown): value is unknown[] | CbufTypedArray {
+  return Array.isArray(value) || (ArrayBuffer.isView(value) && !(value instanceof DataView))
 }
