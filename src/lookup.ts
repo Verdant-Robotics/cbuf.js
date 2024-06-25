@@ -1,4 +1,5 @@
 import { MessageDefinitionField } from "@foxglove/message-definition"
+
 import { CbufMessageDefinition } from "./types"
 
 type EnumDefinition = {

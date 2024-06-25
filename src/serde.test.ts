@@ -1,10 +1,10 @@
+import { parse } from "./parse"
 import {
   createSchemaMaps,
   deserializeMessage,
   serializedMessageSize,
   serializeMessage,
 } from "./serde"
-import { parse } from "./parse"
 
 // CBuf layout for a non-naked struct:
 //   uint32 CBUF_MAGIC (4 bytes)
@@ -65,7 +65,7 @@ describe("serde", () => {
 
       const view = new DataView(result)
       const sizeAndVariant = view.getUint32(4, true)
-      const hasVariant = (sizeAndVariant & 0x8000000) >>> 0 == 0x8000000
+      const hasVariant = (sizeAndVariant & 0x8000000) >>> 0 === 0x8000000
       const extractedSize = hasVariant ? sizeAndVariant & 0x07ffffff : sizeAndVariant & 0x7fffffff
       const variant = hasVariant ? (sizeAndVariant >> 27) & 0x0f : 0
       expect(hasVariant).toEqual(false)

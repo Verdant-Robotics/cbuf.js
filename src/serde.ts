@@ -1,6 +1,7 @@
 import { MessageDefinitionField } from "@foxglove/message-definition"
-import { CbufMessage, CbufMessageData, CbufMessageDefinition, CbufTypedArray } from "./types"
+
 import { lookupMsgdef } from "./lookup"
+import { CbufMessage, CbufMessageData, CbufMessageDefinition, CbufTypedArray } from "./types"
 
 type TypedArrayConstructor =
   | Uint8ArrayConstructor
@@ -50,8 +51,8 @@ const textEncoder = new TextEncoder()
 export function createSchemaMaps(
   schemas: CbufMessageDefinition[],
 ): [Map<string, CbufMessageDefinition>, Map<bigint, CbufMessageDefinition>] {
-  const messageMap = new Map()
-  const hashMap = new Map()
+  const messageMap = new Map<string, CbufMessageDefinition>()
+  const hashMap = new Map<bigint, CbufMessageDefinition>()
   for (const schema of schemas) {
     messageMap.set(schema.name, schema)
     hashMap.set(schema.hashValue, schema)
@@ -76,7 +77,7 @@ export function deserializeMessage(
   data: ArrayBufferView,
   offset?: number,
 ): CbufMessage {
-  let curOffset = offset || 0
+  let curOffset = offset ?? 0
   if (curOffset < 0 || curOffset >= data.byteOffset + data.byteLength) {
     throw new Error(
       `Invalid offset ${curOffset} for buffer {byteOffset=${data.byteOffset}, byteLength=${data.byteLength}`,
@@ -106,7 +107,7 @@ export function deserializeMessage(
 
   // size and variant
   const sizeAndVariant = view.getUint32(curOffset, true)
-  const hasVariant = (sizeAndVariant & 0x8000000) >>> 0 == 0x8000000
+  const hasVariant = (sizeAndVariant & 0x8000000) >>> 0 === 0x8000000
   const size = hasVariant ? sizeAndVariant & 0x07ffffff : sizeAndVariant & 0x7fffffff
   const variant = hasVariant ? (sizeAndVariant >> 27) & 0x0f : 0
   curOffset += 4
@@ -201,12 +202,10 @@ function deserializeNakedMessage(
           innerOffset += arrayLength * 4
           break
         case "uint64":
-          // eslint-disable-next-line no-undef
           output[field.name] = typedArray(BigUint64Array, view.buffer, bufferOffset, arrayLength)
           innerOffset += arrayLength * 8
           break
         case "int64":
-          // eslint-disable-next-line no-undef
           output[field.name] = typedArray(BigInt64Array, view.buffer, bufferOffset, arrayLength)
           innerOffset += arrayLength * 8
           break
@@ -467,7 +466,7 @@ function serializedNakedMessageSize(
           // Nested struct array. Compute the size of each element individually
           if (isValueArray) {
             const nestedMsgdef = lookupMsgdef(nameToSchema, msgdef.namespaces, field.type)
-            for (const element of value) {
+            for (const element of value as Record<string, unknown>[]) {
               size += serializedNakedMessageSize(nameToSchema, nestedMsgdef, element)
             }
           }

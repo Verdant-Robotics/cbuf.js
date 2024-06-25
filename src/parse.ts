@@ -1,8 +1,9 @@
-import { Grammar, Parser } from "nearley"
 import { ConstantValue, DefaultValue, MessageDefinitionField } from "@foxglove/message-definition"
-import { CbufMessageDefinition } from "./types"
+import { Grammar, Parser } from "nearley"
+
 import cbufRules from "./cbuf.ne"
 import { lookupEnum, lookupMsgdef } from "./lookup"
+import { CbufMessageDefinition } from "./types"
 
 const CBUF_GRAMMAR = Grammar.fromCompiled(cbufRules)
 
@@ -90,7 +91,7 @@ function preprocessRecursive(
     .replace(/\/\*[\s\S]*?\*\//g, "") // Remove multi-line comments
 
   // Find all #import statements
-  const importStatements = cleanedMessageDefinition.match(/#import\s+\"(.+)\"/g)
+  const importStatements = cleanedMessageDefinition.match(/#import\s+"(.+)"/g)
   if (!importStatements) {
     return cleanedMessageDefinition
   }
@@ -98,7 +99,7 @@ function preprocessRecursive(
   // Recursively resolve imports
   for (const importStatement of importStatements) {
     // Extract the import path and check if it exists
-    const importPath = importStatement.match(/#import\s+\"(.+)\"/)![1]!
+    const importPath = importStatement.match(/#import\s+"(.+)"/)![1]!
     if (!importedDefinitions.has(importPath)) {
       throw new Error(`Import not found: ${importPath}`)
     }
@@ -145,11 +146,12 @@ export function parse(messageDefinition: string): CbufMessageDefinition[] {
   if (parseResults.length === 0) {
     throw new Error("No parse results")
   }
-  if (parseResults[0].length === 0) {
+
+  const entities = parseResults[0] as ParserEntityDefinition[]
+  if (entities.length === 0) {
     throw new Error("No entities found")
   }
 
-  const entities = parseResults[0] as ParserEntityDefinition[]
   const entityNames = new Set<string>()
   const namespaces: string[] = []
   const constants = new Map<string, ConstantDefinition>()
@@ -160,7 +162,7 @@ export function parse(messageDefinition: string): CbufMessageDefinition[] {
 
   // Build a map from struct/enum name to definition
   const map = new Map<string, CbufMessageDefinition>()
-  for (let result of parsed) {
+  for (const result of parsed) {
     map.set(result.name, result)
     if (!result.isEnum) {
       structCount++
@@ -172,7 +174,7 @@ export function parse(messageDefinition: string): CbufMessageDefinition[] {
   }
 
   // Compute hash values
-  for (let result of parsed) {
+  for (const result of parsed) {
     if (!result.isEnum) {
       result.hashValue = computeHashValue(map, result.namespaces, result.name)
     }
@@ -236,7 +238,7 @@ function parseEntities(
         // Ensure a value is set for each enum field
         let nextValue = 0
         for (const definition of definitions) {
-          if (definition.value === undefined) {
+          if (definition.value == undefined) {
             definition.value = nextValue++
           } else {
             if (typeof definition.value !== "number") {
@@ -262,7 +264,7 @@ function parseEntities(
         const definitions = entity.definitions.slice()
 
         // Rewrite enum-typed fields as uint32s
-        for (let definition of definitions) {
+        for (const definition of definitions) {
           if (definition.isComplex === true) {
             // Check if this type resolves to an enum
             const enumDefinition = lookupEnum(enums, namespaces, definition.type)

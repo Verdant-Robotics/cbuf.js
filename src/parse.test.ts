@@ -128,13 +128,13 @@ describe("parse", () => {
     })
 
     it("should throw an error for an ambiguous parse", () => {
-      expect(() => parse("struct a { bool b; } struct a { int32 c; }")).toThrowError(
+      expect(() => parse("struct a { bool b; } struct a { int32 c; }")).toThrow(
         "Duplicate entity name: a",
       )
     })
 
     it("should throw an error for no parse results", () => {
-      expect(() => parse("")).toThrowError("No parse results")
+      expect(() => parse("")).toThrow("No parse results")
     })
   })
 
@@ -348,7 +348,7 @@ describe("parse", () => {
     })
 
     it("should error if no struct is defined", () => {
-      expect(() => parse("enum a { b, c, d }")).toThrowError("No struct definitions found")
+      expect(() => parse("enum a { b, c, d }")).toThrow("No struct definitions found")
     })
   })
 
@@ -372,17 +372,17 @@ describe("parse", () => {
     })
 
     it("should disallow constants in default values", () => {
-      expect(() => parse("const uint32 a = 123; struct b { uint32 a = a; }")).toThrowError(
+      expect(() => parse("const uint32 a = 123; struct b { uint32 a = a; }")).toThrow(
         "Invalid default value",
       )
     })
 
     it("should throw an error for a constant with no value", () => {
-      expect(() => parse("const uint32 a;")).toThrowError("Syntax error at line 1")
+      expect(() => parse("const uint32 a;")).toThrow("Syntax error at line 1")
     })
 
     it("should throw an error for a constant with an invalid value", () => {
-      expect(() => parse("const uint32 a = foo; struct b { bool c; }")).toThrowError(
+      expect(() => parse("const uint32 a = foo; struct b { bool c; }")).toThrow(
         "Invalid default value",
       )
     })
@@ -390,7 +390,7 @@ describe("parse", () => {
 
   describe("namespaces", () => {
     it("should fail on an empty namespace", () => {
-      expect(() => parse("namespace a { /* comment */ }")).toThrowError()
+      expect(() => parse("namespace a { /* comment */ }")).toThrow()
     })
 
     it("should parse a namespace with a struct", () => {
@@ -412,7 +412,7 @@ describe("parse", () => {
     })
 
     it("should disallow nested namespaces", () => {
-      expect(() => parse("namespace a { namespace b { struct c { bool d; } } }")).toThrowError(
+      expect(() => parse("namespace a { namespace b { struct c { bool d; } } }")).toThrow(
         "Nested namespaces are not allowed",
       )
     })
