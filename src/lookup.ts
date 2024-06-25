@@ -14,7 +14,7 @@ export function lookupMsgdef(
   namespaces: string[],
   typeName: string,
 ): CbufMessageDefinition {
-  if (typeName.indexOf("::") !== -1) {
+  if (typeName.includes("::")) {
     // If the type name is already fully qualified, just look it up directly
     const msgdef = nameToSchema.get(typeName)
     if (msgdef) {
@@ -48,7 +48,7 @@ export function lookupEnum(
   namespaces: string[],
   typeName: string,
 ): EnumDefinition | undefined {
-  if (typeName.indexOf("::") !== -1) {
+  if (typeName.includes("::")) {
     // If the type name is already fully qualified, just look it up directly
     const msgdef = enums.get(typeName)
     if (msgdef) {
