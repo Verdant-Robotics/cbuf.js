@@ -377,12 +377,6 @@ function readBasicType(
     case "float64":
       message[field.name] = view.getFloat64(offset, true)
       return 8
-    case "short_string": {
-      const bytes = new Uint8Array(view.buffer, view.byteOffset + offset, 15)
-      const str = textDecoder.decode(bytes)
-      message[field.name] = str.split("\0").shift()
-      return 15
-    }
     case "string": {
       let curOffset = 0
       let length = field.upperBound
@@ -471,16 +465,16 @@ function serializedNakedMessageSize(
         case "float64":
           size += arrayLength * 8
           break
-        case "short_string":
-          size += arrayLength * 15
-          break
         case "string":
-          if (field.arrayLength == undefined && field.upperBound == undefined) {
+          if (field.upperBound == undefined) {
             // Variable length string array. Each element has a 4-byte length prefix
             size += arrayLength * 4
             for (const element of arrayValue) {
               size += typeof element === "string" ? element.length : 0
             }
+          } else {
+            // Fixed length string array
+            size += arrayLength * field.upperBound
           }
           break
         default:
@@ -540,9 +534,6 @@ function serializedNakedMessageSize(
             size += length
             break
           }
-          case "short_string":
-            size += 15
-            break
           default:
             throw new Error(`Unsupported type ${field.type}`)
         }
@@ -767,16 +758,6 @@ function serializeNonArrayField(
           }
           innerOffset += length
         }
-        break
-      }
-      case "short_string": {
-        const str = typeof value === "string" ? value : ""
-        const bytes = textEncoder.encode(str)
-        const byteOffset = view.byteOffset + curOffset
-        const dest = new Uint8Array(view.buffer, byteOffset, 15)
-        dest.fill(0)
-        dest.set(bytes.slice(0, 15))
-        innerOffset += 15
         break
       }
       default:

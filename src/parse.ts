@@ -198,9 +198,15 @@ export function parse(messageDefinition: string): CbufMessageDefinition[] {
     }
   }
 
-  // Remove the temporary `valueText` field from enum fields
   for (const result of parsed) {
     for (const field of result.definitions) {
+      // Rewrite short_string types as fixed-size strings
+      if (field.type === "short_string") {
+        field.type = "string"
+        field.upperBound = 15
+      }
+
+      // Remove the temporary `valueText` field from enum fields
       delete field.valueText
     }
   }

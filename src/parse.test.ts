@@ -55,6 +55,31 @@ describe("parse", () => {
       ])
     })
 
+    it("should handle short_string", () => {
+      const result = parse(`namespace ns1 { struct a { double b; short_string c; } }`)
+      expect(result).toEqual([
+        {
+          name: "ns1::a",
+          namespaces: ["ns1"],
+          hashValue: 16459951902678586258n,
+          isEnum: false,
+          isEnumClass: false,
+          isNakedStruct: false,
+          definitions: [
+            {
+              type: "float64",
+              name: "b",
+            },
+            {
+              type: "string",
+              name: "c",
+              upperBound: 15,
+            },
+          ],
+        },
+      ])
+    })
+
     it("should preprocess and parse a message definition with a comment", () => {
       const preResult = preprocess("struct a { bool b; /* comment */ }", new Map())
       expect(preResult).toEqual("struct a { bool b;  }")
