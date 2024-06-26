@@ -184,9 +184,6 @@ export function parse(messageDefinition: string): CbufMessageDefinition[] {
     for (const field of result.definitions) {
       if (field.isComplex === true) {
         const resolved = lookupMsgdef(map, result.namespaces, field.type)
-        if (!resolved) {
-          throw new Error(`Unknown type ${field.type}`)
-        }
         if (!field.type.includes("::") && resolved.namespaces.length > 0) {
           field.type = resolved.namespaces.concat(field.type).join("::")
         }

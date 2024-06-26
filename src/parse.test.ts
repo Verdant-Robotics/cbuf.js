@@ -1,9 +1,10 @@
 // parse.test.ts
 // Description: Jest tests for the CBUF grammar
 
-import { parse, preprocess } from "./parse"
 import { readFileSync } from "fs"
 import { join } from "path"
+
+import { parse, preprocess } from "./parse"
 import { createSchemaMaps } from "./serde"
 
 const TEST_DATA_DIR = join(__dirname, "..", "test", "data")

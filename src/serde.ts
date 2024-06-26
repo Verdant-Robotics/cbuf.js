@@ -301,7 +301,7 @@ function readNonArrayField(
   if (field.isComplex === true) {
     const nestedMsgdef = lookupMsgdef(schemaMap, namespaces, field.type)
 
-    if (nestedMsgdef.isNakedStruct === true) {
+    if (nestedMsgdef.isNakedStruct) {
       // Nested naked struct (no header). Just deserialize the nested message
       const nestedMessage = {}
       innerOffset += deserializeNakedMessage(
@@ -498,7 +498,7 @@ function serializedNakedMessageSize(
       if (field.isComplex === true) {
         const nestedMsgdef = lookupMsgdef(nameToSchema, msgdef.namespaces, field.type)
 
-        if (nestedMsgdef.isNakedStruct !== true) {
+        if (!nestedMsgdef.isNakedStruct) {
           size += HEADER_SIZE
         }
 
@@ -680,7 +680,7 @@ function serializeNonArrayField(
   if (field.isComplex === true) {
     const nestedMsgdef = lookupMsgdef(nameToSchema, namespaces, field.type)
 
-    if (nestedMsgdef.isNakedStruct !== true) {
+    if (!nestedMsgdef.isNakedStruct) {
       const nestedSize = serializedNakedMessageSize(
         nameToSchema,
         nestedMsgdef,
