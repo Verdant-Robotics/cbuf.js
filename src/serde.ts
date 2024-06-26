@@ -57,7 +57,9 @@ export function createSchemaMaps(
   const hashMap = new Map<bigint, CbufMessageDefinition>()
   for (const schema of schemas) {
     messageMap.set(schema.name, schema)
-    hashMap.set(schema.hashValue, schema)
+    if (!schema.isEnum) {
+      hashMap.set(schema.hashValue, schema)
+    }
   }
   return [messageMap, hashMap]
 }
