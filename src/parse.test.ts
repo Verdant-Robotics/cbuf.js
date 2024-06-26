@@ -2,6 +2,10 @@
 // Description: Jest tests for the CBUF grammar
 
 import { parse, preprocess } from "./parse"
+import { readFileSync } from "fs"
+import { join } from "path"
+
+const TEST_DATA_DIR = join(__dirname, "..", "test", "data")
 
 describe("parse", () => {
   describe("basic structs", () => {
@@ -549,6 +553,14 @@ namespace ns2 {
           ],
         },
       ])
+    })
+  })
+
+  describe("foxglove message definitions", () => {
+    it("should parse foxglove message definitions", () => {
+      const FOXGLOVE_CBUF = join(TEST_DATA_DIR, "foxglove.cbuf")
+      const result = parse(readFileSync(FOXGLOVE_CBUF, "utf-8"))
+      expect(result).toHaveLength(41)
     })
   })
 })

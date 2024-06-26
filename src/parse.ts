@@ -174,6 +174,21 @@ export function parse(messageDefinition: string): CbufMessageDefinition[] {
     throw new Error("No struct definitions found")
   }
 
+  // Resolve complex types to fully qualified names
+  for (const result of parsed) {
+    for (const field of result.definitions) {
+      if (field.isComplex === true) {
+        const resolved = lookupMsgdef(map, result.namespaces, field.type)
+        if (!resolved) {
+          throw new Error(`Unknown type ${field.type}`)
+        }
+        if (!field.type.includes("::") && resolved.namespaces.length > 0) {
+          field.type = resolved.namespaces.concat(field.type).join("::")
+        }
+      }
+    }
+  }
+
   // Compute hash values
   for (const result of parsed) {
     if (!result.isEnum) {
@@ -273,7 +288,7 @@ function parseEntities(
             if (enumDefinition) {
               // Rewrite the field as a uint32
               definition.type = "uint32"
-              definition.isComplex = undefined
+              delete definition.isComplex
 
               if (
                 definition.defaultValue != undefined &&
@@ -291,8 +306,6 @@ function parseEntities(
                   )
                 }
               }
-            } else if (!definition.type.includes("::")) {
-              definition.type = namespaces.concat(definition.type).join("::")
             }
           }
         }
