@@ -279,6 +279,7 @@ function parseEntities(
                 definition.defaultValue != undefined &&
                 typeof definition.defaultValue !== "number"
               ) {
+                // Rewrite the default value as a number
                 const enumValue = enumDefinition.definitions.find(
                   (d) => d.name === definition.defaultValue,
                 )
@@ -290,6 +291,8 @@ function parseEntities(
                   )
                 }
               }
+            } else if (!definition.type.includes("::")) {
+              definition.type = namespaces.concat(definition.type).join("::")
             }
           }
         }

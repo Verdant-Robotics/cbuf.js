@@ -457,6 +457,7 @@ namespace ns1 {
 namespace ns2 {
   enum e { f }
   struct g { e h; ns2::e i; ns1::a j; ns1::c k; }
+  struct l { g m; }
 }`)
       expect(result).toEqual([
         {
@@ -528,6 +529,21 @@ namespace ns2 {
             {
               type: "ns1::c",
               name: "k",
+              isComplex: true,
+            },
+          ],
+        },
+        {
+          name: "ns2::l",
+          namespaces: ["ns2"],
+          hashValue: 4091481798503492893n,
+          isEnum: false,
+          isEnumClass: false,
+          isNakedStruct: false,
+          definitions: [
+            {
+              type: "ns2::g",
+              name: "m",
               isComplex: true,
             },
           ],

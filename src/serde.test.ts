@@ -194,14 +194,14 @@ namespace ns2 {
       const view = new DataView(result)
       expect(new Uint8Array(result, 0, 4)).toEqual(new Uint8Array(CBUF_MAGIC))
       expect(view.getUint32(4, true)).toEqual(CBUF_PREAMBLE_SIZE + 316)
-      expect(view.getBigUint64(8, true)).toEqual(655669508679171342n)
+      expect(view.getBigUint64(8, true)).toEqual(13988650668746412734n)
       expect(view.getFloat64(16, true)).toEqual(1)
       expect(view.getUint8(24)).toEqual(1)
 
       // CBUF_PREAMBLE repeats again for ns1::complex struct
       expect(new Uint8Array(result, 25, 4)).toEqual(new Uint8Array(CBUF_MAGIC))
       expect(view.getUint32(29, true)).toEqual(311)
-      expect(view.getBigUint64(33, true)).toEqual(1731498370440139439n)
+      expect(view.getBigUint64(33, true)).toEqual(6483351660403987869n)
       expect(view.getFloat64(41, true)).toEqual(0)
 
       // ns1::nested is @naked, so no preamble. Next field is nested.text
@@ -299,7 +299,7 @@ namespace ns2 {
         typeName: "ns2::outer",
         size: 315,
         variant: 9,
-        hashValue: 655669508679171342n,
+        hashValue: 13988650668746412734n,
         timestamp: 3,
         message: {
           a: true,
