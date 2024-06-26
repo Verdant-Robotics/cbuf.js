@@ -203,7 +203,7 @@ export function parse(messageDefinition: string): CbufMessageDefinition[] {
       // Rewrite short_string types as fixed-size strings
       if (field.type === "short_string") {
         field.type = "string"
-        field.upperBound = 15
+        field.upperBound = 16
       }
 
       // Remove the temporary `valueText` field from enum fields

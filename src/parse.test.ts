@@ -73,7 +73,7 @@ describe("parse", () => {
             {
               type: "string",
               name: "c",
-              upperBound: 15,
+              upperBound: 16,
             },
           ],
         },

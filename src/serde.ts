@@ -681,7 +681,7 @@ function serializeNonArrayField(
       const nestedSize = serializedNakedMessageSize(
         nameToSchema,
         nestedMsgdef,
-        value as Record<string, unknown>,
+        (value ?? {}) as Record<string, unknown>,
       )
 
       view.setUint32(curOffset + innerOffset, 0x56444e54, true)
@@ -697,7 +697,7 @@ function serializeNonArrayField(
     innerOffset += serializeNakedMessage(
       nameToSchema,
       nestedMsgdef,
-      value as Record<string, unknown>,
+      (value ?? {}) as Record<string, unknown>,
       view,
       curOffset + innerOffset,
     )
