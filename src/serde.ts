@@ -22,6 +22,8 @@ const METADATA_DEFINITION: CbufMessageDefinition = {
   namespaces: ["cbufmsg"],
   hashValue: 0xbe6738d544ab72c6n,
   isEnum: false,
+  isEnumClass: false,
+  isNakedStruct: false,
   definitions: [
     { name: "msg_hash", type: "uint64" },
     { name: "msg_name", type: "string" },

@@ -13,6 +13,8 @@ describe("parse", () => {
           namespaces: [],
           hashValue: 3808120302725858088n,
           isEnum: false,
+          isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               type: "bool",
@@ -31,6 +33,8 @@ describe("parse", () => {
           namespaces: [],
           hashValue: 4036783964384908627n,
           isEnum: false,
+          isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               type: "bool",
@@ -55,6 +59,8 @@ describe("parse", () => {
           namespaces: [],
           hashValue: 3808120302725858088n,
           isEnum: false,
+          isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               type: "bool",
@@ -75,6 +81,8 @@ describe("parse", () => {
           namespaces: [],
           hashValue: 4036783964384908627n,
           isEnum: false,
+          isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               type: "bool",
@@ -97,6 +105,7 @@ describe("parse", () => {
           namespaces: [],
           hashValue: 3808120302725858088n,
           isEnum: false,
+          isEnumClass: false,
           isNakedStruct: true,
           definitions: [
             {
@@ -116,6 +125,8 @@ describe("parse", () => {
           namespaces: [],
           hashValue: 16587707399711602108n,
           isEnum: false,
+          isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               type: "uint32",
@@ -147,6 +158,8 @@ describe("parse", () => {
           namespaces: [],
           hashValue: 3808120302725858088n,
           isEnum: false,
+          isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               type: "bool",
@@ -166,6 +179,8 @@ describe("parse", () => {
           namespaces: [],
           hashValue: 1509765891216373104n,
           isEnum: false,
+          isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               type: "bool",
@@ -188,6 +203,8 @@ describe("parse", () => {
           namespaces: [],
           hashValue: 8994656239654062125n,
           isEnum: false,
+          isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               type: "float64",
@@ -219,6 +236,7 @@ describe("parse", () => {
           hashValue: 0n,
           isEnum: true,
           isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               name: "b",
@@ -245,6 +263,8 @@ describe("parse", () => {
           namespaces: [],
           hashValue: 14341441348656048252n,
           isEnum: false,
+          isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               type: "uint32",
@@ -265,6 +285,7 @@ describe("parse", () => {
           hashValue: 0n,
           isEnum: true,
           isEnumClass: true,
+          isNakedStruct: false,
           definitions: [
             {
               name: "b",
@@ -279,6 +300,8 @@ describe("parse", () => {
           namespaces: [],
           hashValue: 3909204515753383596n,
           isEnum: false,
+          isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               type: "bool",
@@ -298,6 +321,7 @@ describe("parse", () => {
           hashValue: 0n,
           isEnum: true,
           isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               name: "b",
@@ -336,6 +360,8 @@ describe("parse", () => {
           namespaces: [],
           hashValue: 16366175273103426901n,
           isEnum: false,
+          isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               type: "uint32",
@@ -361,6 +387,8 @@ describe("parse", () => {
           namespaces: [],
           hashValue: 16366175273103390964n,
           isEnum: false,
+          isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               type: "uint32",
@@ -401,6 +429,8 @@ describe("parse", () => {
           namespaces: ["a"],
           hashValue: 12820973806649668735n,
           isEnum: false,
+          isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               type: "bool",
@@ -435,6 +465,7 @@ namespace ns2 {
           hashValue: 0n,
           isEnum: true,
           isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               name: "b",
@@ -449,6 +480,8 @@ namespace ns2 {
           namespaces: ["ns1"],
           hashValue: 2299624816536008030n,
           isEnum: false,
+          isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               type: "uint32",
@@ -462,6 +495,7 @@ namespace ns2 {
           hashValue: 0n,
           isEnum: true,
           isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               name: "f",
@@ -476,6 +510,8 @@ namespace ns2 {
           namespaces: ["ns2"],
           hashValue: 3084739611297464190n,
           isEnum: false,
+          isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               type: "uint32",

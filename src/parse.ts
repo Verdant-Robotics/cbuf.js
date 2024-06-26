@@ -258,6 +258,7 @@ function parseEntities(
           hashValue: BigInt(0),
           isEnum: true,
           isEnumClass: entity.isEnumClass ?? false,
+          isNakedStruct: false,
         })
         break
       }
@@ -323,7 +324,8 @@ function parseEntities(
           definitions,
           hashValue: BigInt(0),
           isEnum: false,
-          isNakedStruct: entity.isNakedStruct,
+          isEnumClass: false,
+          isNakedStruct: entity.isNakedStruct ?? false,
         })
         break
       }
