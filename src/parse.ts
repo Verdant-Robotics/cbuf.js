@@ -54,7 +54,7 @@ export function preprocess(
   return preprocessRecursive(messageDefinition, importedDefinitions, new Set())
 }
 
-export function computeHashValue(
+function computeHashValue(
   nameToSchema: Map<string, CbufMessageDefinition>,
   namespaces: string[],
   typeName: string,
@@ -70,9 +70,14 @@ export function computeHashValue(
     }
 
     if (field.isComplex === true) {
+      // Complex type
       const nestedHash = computeHashValue(nameToSchema, msgdef.namespaces, field.type)
-      buf.push(`${nestedHash} ${field.name};\n`)
+      buf.push(`${nestedHash.toString(16).toUpperCase()} ${field.name};\n`)
+    } else if (field.valueText != undefined) {
+      // Enum type
+      buf.push(`${field.valueText} ${field.name};\n`)
     } else {
+      // Primitive type
       buf.push(`${elementTypeToStrC(field.type)} ${field.name}; \n`) // The space is intentional
     }
   }
@@ -196,6 +201,13 @@ export function parse(messageDefinition: string): CbufMessageDefinition[] {
     }
   }
 
+  // Remove the temporary `valueText` field from enum fields
+  for (const result of parsed) {
+    for (const field of result.definitions) {
+      delete field.valueText
+    }
+  }
+
   return parsed
 }
 
@@ -286,7 +298,10 @@ function parseEntities(
             // Check if this type resolves to an enum
             const enumDefinition = lookupEnum(enums, namespaces, definition.type)
             if (enumDefinition) {
-              // Rewrite the field as a uint32
+              // Rewrite the field as a uint32, preserving the original enum type without namespace
+              // in `valueText`. This is only used for hashing, and is cleared before returning the
+              // definition
+              definition.valueText = definition.type.split("::").pop()!
               definition.type = "uint32"
               delete definition.isComplex
 

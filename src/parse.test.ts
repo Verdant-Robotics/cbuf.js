@@ -4,6 +4,7 @@
 import { parse, preprocess } from "./parse"
 import { readFileSync } from "fs"
 import { join } from "path"
+import { createSchemaMaps } from "./serde"
 
 const TEST_DATA_DIR = join(__dirname, "..", "test", "data")
 
@@ -265,7 +266,7 @@ describe("parse", () => {
         {
           name: "e",
           namespaces: [],
-          hashValue: 14341441348656048252n,
+          hashValue: 15672240771935124165n,
           isEnum: false,
           isEnumClass: false,
           isNakedStruct: false,
@@ -362,7 +363,7 @@ describe("parse", () => {
         {
           name: "b",
           namespaces: [],
-          hashValue: 16366175273103426901n,
+          hashValue: 15672240644079790878n,
           isEnum: false,
           isEnumClass: false,
           isNakedStruct: false,
@@ -483,7 +484,7 @@ namespace ns2 {
         {
           name: "ns1::c",
           namespaces: ["ns1"],
-          hashValue: 2299624816536008030n,
+          hashValue: 4029375906261562343n,
           isEnum: false,
           isEnumClass: false,
           isNakedStruct: false,
@@ -513,7 +514,7 @@ namespace ns2 {
         {
           name: "ns2::g",
           namespaces: ["ns2"],
-          hashValue: 3084739611297464190n,
+          hashValue: 8225633928078451089n,
           isEnum: false,
           isEnumClass: false,
           isNakedStruct: false,
@@ -540,7 +541,7 @@ namespace ns2 {
         {
           name: "ns2::l",
           namespaces: ["ns2"],
-          hashValue: 4091481798503492893n,
+          hashValue: 10554418515103042986n, // Verified
           isEnum: false,
           isEnumClass: false,
           isNakedStruct: false,
@@ -561,6 +562,12 @@ namespace ns2 {
       const FOXGLOVE_CBUF = join(TEST_DATA_DIR, "foxglove.cbuf")
       const result = parse(readFileSync(FOXGLOVE_CBUF, "utf-8"))
       expect(result).toHaveLength(41)
+
+      const [schemaMap, hashMap] = createSchemaMaps(result)
+      const tfs = schemaMap.get("foxglove::FrameTransforms")
+      expect(tfs).toBeDefined()
+      expect(tfs!.hashValue).toEqual(12790125643200664008n)
+      expect(hashMap.get(12790125643200664008n)).toBeDefined()
     })
   })
 })

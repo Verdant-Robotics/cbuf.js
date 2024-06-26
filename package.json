@@ -35,7 +35,7 @@
     "lint": "eslint --report-unused-disable-directives --fix .",
     "prepack": "yarn build",
     "prepublishOnly": "yarn lint:ci && yarn test",
-    "test": "jest"
+    "test": "jest --verbose"
   },
   "dependencies": {
     "@foxglove/message-definition": "^0.3.1"
