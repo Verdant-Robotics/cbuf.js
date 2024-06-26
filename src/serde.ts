@@ -132,7 +132,9 @@ export function deserializeMessage(
   const msgdef =
     hashValue === METADATA_DEFINITION.hashValue ? METADATA_DEFINITION : hashToSchema.get(hashValue)
   if (!msgdef) {
-    throw new Error(`cbuf hash value ${hashValue} not found in the hash map`)
+    throw new Error(
+      `cbuf hash value ${hashValue} not found in the hash map with ${hashToSchema.size} entries`,
+    )
   }
 
   // message data

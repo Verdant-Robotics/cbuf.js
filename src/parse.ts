@@ -66,7 +66,7 @@ function computeHashValue(
   buf.push(`struct ${typeName} \n`)
   for (const field of msgdef.definitions) {
     if (field.isArray === true) {
-      buf.push(`[${field.arrayLength ?? 0}] `)
+      buf.push(`[${field.arrayLength ?? field.arrayUpperBound ?? 0}] `)
     }
 
     if (field.isComplex === true) {

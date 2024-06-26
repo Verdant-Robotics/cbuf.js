@@ -144,6 +144,28 @@ describe("parse", () => {
       ])
     })
 
+    it("should parse fixed array fields", () => {
+      const result = parse("struct a { u32 b[16] @compact; }")
+      expect(result).toEqual([
+        {
+          name: "a",
+          namespaces: [],
+          hashValue: 11481123529866194227n,
+          isEnum: false,
+          isEnumClass: false,
+          isNakedStruct: false,
+          definitions: [
+            {
+              type: "uint32",
+              name: "b",
+              isArray: true,
+              arrayUpperBound: 16,
+            },
+          ],
+        },
+      ])
+    })
+
     it("should throw an error for an ambiguous parse", () => {
       expect(() => parse("struct a { bool b; } struct a { int32 c; }")).toThrow(
         "Duplicate entity name: a",
