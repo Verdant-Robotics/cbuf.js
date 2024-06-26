@@ -28,7 +28,7 @@ export type CbufTypedArray =
   | BigInt64Array
   | BigUint64Array
 
-export type CbufArray = boolean[] | number[] | bigint[] | string[]
+export type CbufArray = boolean[] | number[] | bigint[] | string[] | Record<string, unknown>[]
 
 export type CbufValue =
   | boolean

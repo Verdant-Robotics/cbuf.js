@@ -469,7 +469,8 @@ function serializedNakedMessageSize(
           if (field.upperBound == undefined) {
             // Variable length string array. Each element has a 4-byte length prefix
             size += arrayLength * 4
-            for (const element of arrayValue) {
+            for (let i = 0; i < arrayLength; i++) {
+              const element = arrayValue[i]
               size += typeof element === "string" ? element.length : 0
             }
           } else {
@@ -477,18 +478,21 @@ function serializedNakedMessageSize(
             size += arrayLength * field.upperBound
           }
           break
-        default:
+        default: {
           // Nested struct array. Compute the size of each element individually
-          if (arrayValue.length > 0) {
-            const nestedMsgdef = lookupMsgdef(nameToSchema, msgdef.namespaces, field.type)
-            for (const element of arrayValue) {
-              const nestedElement = (
-                element != undefined && typeof element === "object" ? element : {}
-              ) as Record<string, unknown>
-              size += serializedNakedMessageSize(nameToSchema, nestedMsgdef, nestedElement)
-            }
+          const nestedMsgdef = lookupMsgdef(nameToSchema, msgdef.namespaces, field.type)
+          if (!nestedMsgdef.isNakedStruct) {
+            size += arrayLength * HEADER_SIZE
+          }
+          for (let i = 0; i < arrayLength; i++) {
+            const element = arrayValue[i]
+            const nestedElement = (
+              element != undefined && typeof element === "object" ? element : {}
+            ) as Record<string, unknown>
+            size += serializedNakedMessageSize(nameToSchema, nestedMsgdef, nestedElement)
           }
           break
+        }
       }
     } else {
       if (field.isComplex === true) {

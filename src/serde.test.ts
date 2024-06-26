@@ -65,7 +65,10 @@ namespace ns2 {
   }
 }`),
   )
-  // const hashValue2 = nameToSchema2.get("b")!.hashValue
+
+  const [nameToSchema3, hashToSchema3] = createSchemaMaps(
+    parse(`struct a { short_string b; } struct c { a d[2]; }`),
+  )
 
   describe("createSchemaMaps", () => {
     it("should create valid schema maps", () => {
@@ -74,6 +77,9 @@ namespace ns2 {
 
       expect(nameToSchema2.size).toEqual(3)
       expect(hashToSchema2.size).toEqual(3)
+
+      expect(nameToSchema3.size).toEqual(2)
+      expect(hashToSchema3.size).toEqual(2)
     })
   })
 
@@ -129,6 +135,24 @@ namespace ns2 {
         },
       })
       expect(size2).toEqual(CBUF_PREAMBLE_SIZE + 316)
+    })
+
+    it("should calculate the size of a fixed complex array message", () => {
+      const size1 = serializedMessageSize(nameToSchema3, {
+        typeName: "c",
+        timestamp: 0,
+        message: {},
+      })
+      expect(size1).toEqual(CBUF_PREAMBLE_SIZE + 78)
+
+      const size2 = serializedMessageSize(nameToSchema3, {
+        typeName: "c",
+        timestamp: 1,
+        message: {
+          d: [{ b: "x" }, { b: "y" }],
+        },
+      })
+      expect(size2).toEqual(CBUF_PREAMBLE_SIZE + 78)
     })
   })
 
@@ -268,6 +292,40 @@ namespace ns2 {
       expect(view.getFloat64(328, true)).toEqual(2)
       expect(view.getInt32(336, true)).toEqual(42) // Default value for c
     })
+
+    it("should serialize a fixed complex array message", () => {
+      const cbuf = {
+        typeName: "c",
+        timestamp: 1,
+        message: {
+          d: [{ b: "x" }, { b: "y" }],
+        },
+      }
+      const result = serializeMessage(nameToSchema3, cbuf)
+      const view = new DataView(result)
+      expect(new Uint8Array(result, 0, 4)).toEqual(new Uint8Array(CBUF_MAGIC))
+      expect(view.getUint32(4, true)).toEqual(CBUF_PREAMBLE_SIZE + 78)
+      expect(view.getBigUint64(8, true)).toEqual(631948679737176247n)
+      expect(view.getFloat64(16, true)).toEqual(1)
+      // CBUF_PREAMBLE repeats again for the first struct in the array
+      expect(new Uint8Array(result, 24, 4)).toEqual(new Uint8Array(CBUF_MAGIC))
+      expect(view.getUint32(28, true)).toEqual(39)
+      expect(view.getBigUint64(32, true)).toEqual(882380958363159241n)
+      expect(view.getFloat64(40, true)).toEqual(0)
+      // first short_string
+      expect(new TextDecoder().decode(result.slice(48, 48 + 15))).toEqual(
+        "x\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+      )
+      // CBUF_PREAMBLE repeats again for the second struct in the array
+      expect(new Uint8Array(result, 63, 4)).toEqual(new Uint8Array(CBUF_MAGIC))
+      expect(view.getUint32(67, true)).toEqual(39)
+      expect(view.getBigUint64(71, true)).toEqual(882380958363159241n)
+      expect(view.getFloat64(79, true)).toEqual(0)
+      // second short_string
+      expect(new TextDecoder().decode(result.slice(87, 87 + 15))).toEqual(
+        "y\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+      )
+    })
   })
 
   describe("deserializeMessage", () => {
@@ -341,6 +399,26 @@ namespace ns2 {
       const deserialized = deserializeMessage(
         nameToSchema2,
         hashToSchema2,
+        new Uint8Array(serialized),
+      )
+      expect(deserialized).toEqual(cbuf)
+    })
+
+    it("should round-trip a fixed complex array message", () => {
+      const cbuf = {
+        typeName: "c",
+        size: 102,
+        variant: 0,
+        hashValue: 631948679737176247n,
+        timestamp: 3,
+        message: {
+          d: [{ b: "x" }, { b: "TestAllFifteenC" }],
+        },
+      }
+      const serialized = serializeMessage(nameToSchema3, cbuf)
+      const deserialized = deserializeMessage(
+        nameToSchema3,
+        hashToSchema3,
         new Uint8Array(serialized),
       )
       expect(deserialized).toEqual(cbuf)
