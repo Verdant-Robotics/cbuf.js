@@ -11,9 +11,9 @@ export type CbufMessageDefinition = MessageDefinition & {
   /** True if this is an `enum` definition */
   isEnum: boolean
   /** True if this is an `enum` definition annotated as `enum class` */
-  isEnumClass?: boolean
+  isEnumClass: boolean
   /** True if this is a `struct` definition annotated with `@naked` */
-  isNakedStruct?: boolean
+  isNakedStruct: boolean
 }
 
 export type CbufTypedArray =
@@ -28,7 +28,7 @@ export type CbufTypedArray =
   | BigInt64Array
   | BigUint64Array
 
-export type CbufArray = boolean[] | number[] | bigint[] | string[]
+export type CbufArray = boolean[] | number[] | bigint[] | string[] | Record<string, unknown>[]
 
 export type CbufValue =
   | boolean

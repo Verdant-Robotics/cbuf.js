@@ -1,0 +1,271 @@
+struct Time @naked {
+    uint32_t sec = 0;
+    uint32_t nsec = 0;
+}
+struct Duration @naked {
+    int32_t sec = 0;
+    uint32_t nsec = 0;
+}
+
+namespace foxglove {
+    enum LogLevel{
+        UNKNOWN = 0,
+        DEBUG = 1,
+        INFO = 2,
+        WARNING = 3,
+        ERROR = 4,
+        FATAL = 5,
+    }
+    enum SceneEntityDeletionType{
+        MATCHING_ID = 0,
+        ALL = 1,
+    }
+    enum LineType{
+        LINE_STRIP = 0,
+        LINE_LOOP = 1,
+        LINE_LIST = 2,
+    }
+    enum PointsAnnotationType{
+        UNKNOWN = 0,
+        POINTS = 1,
+        LINE_LOOP = 2,
+        LINE_STRIP = 3,
+        LINE_LIST = 4,
+    }
+    enum NumericField{
+        UNKNOWN = 0,
+        UINT8 = 1,
+        INT8 = 2,
+        UINT16 = 3,
+        INT16 = 4,
+        UINT32 = 5,
+        INT32 = 6,
+        FLOAT32 = 7,
+        FLOAT64 = 8,
+    }
+    struct Log {
+        Time timestamp;
+        LogLevel level;
+        string message;
+        string name;
+        string file;
+        uint32_t line = 0;
+    }
+    struct CameraCalibration {
+        Time timestamp;
+        string frame_id;
+        uint32_t width;
+        uint32_t height;
+        string distortion_model;
+        double D[];
+        double K[9];
+        double R[9];
+        double P[12];
+    }
+    struct SceneEntityDeletion @naked {
+        Time timestamp;
+        SceneEntityDeletionType type;
+        string id;
+    }
+    struct KeyValuePair @naked {
+        string key;
+        string value;
+    }
+    struct Vector3 @naked {
+        double x = 0.000000;
+        double y = 0.000000;
+        double z = 0.000000;
+    }
+    struct Quaternion @naked {
+        double x = 0.000000;
+        double y = 0.000000;
+        double z = 0.000000;
+        double w = 1.000000;
+    }
+    struct Pose @naked {
+        Vector3 position;
+        Quaternion orientation;
+    }
+    struct Color @naked {
+        double r = 0.000000;
+        double g = 0.000000;
+        double b = 0.000000;
+        double a = 1.000000;
+    }
+    struct FrameTransform {
+        Time timestamp;
+        string parent_frame_id;
+        string child_frame_id;
+        Vector3 translation;
+        Quaternion rotation;
+    }
+    struct FrameTransforms {
+        FrameTransform transforms[];
+    }
+    struct PoseInFrame {
+        Time timestamp;
+        string frame_id;
+        Pose pose;
+    }
+    struct PosesInFrame {
+        Time timestamp;
+        string frame_id;
+        Pose poses[];
+    }
+    struct ArrowPrimitive @naked {
+        Pose pose;
+        double shaft_length = 0.900000;
+        double shaft_diameter = 0.050000;
+        double head_length = 0.100000;
+        double head_diameter = 0.200000;
+        Color color;
+    }
+    struct CubePrimitive @naked {
+        Pose pose;
+        Vector3 size;
+        Color color;
+    }
+    struct SpherePrimitive @naked {
+        Pose pose;
+        Vector3 size;
+        Color color;
+    }
+    struct CylinderPrimitive @naked {
+        Pose pose;
+        Vector3 size;
+        double bottom_scale = 1.000000;
+        double top_scale = 1.000000;
+        Color color;
+    }
+    struct LinePrimitive @naked {
+        LineType type;
+        Pose pose;
+        double thickness = 1.000000;
+        bool scale_invariant = false;
+        Vector3 points[];
+        Color color;
+        Color colors[];
+        uint32_t indices[];
+    }
+    struct TriangleListPrimitive @naked {
+        Pose pose;
+        Vector3 points[];
+        Color color;
+        Color colors[];
+        uint32_t indices[];
+    }
+    struct TextPrimitive @naked {
+        Pose pose;
+        bool billboard;
+        double font_size = 1.000000;
+        bool scale_invariant = false;
+        Color color;
+        string text;
+    }
+    struct ModelPrimitive @naked {
+        Pose pose;
+        Vector3 scale;
+        Color color;
+        bool override_color = false;
+        string url;
+        string media_type;
+        uint8_t data[];
+    }
+    struct SceneEntity @naked {
+        Time timestamp;
+        string frame_id;
+        string id;
+        Duration lifetime;
+        bool frame_locked = false;
+        KeyValuePair metadata[];
+        ArrowPrimitive arrows[];
+        CubePrimitive cubes[];
+        SpherePrimitive spheres[];
+        CylinderPrimitive cylinders[];
+        LinePrimitive lines[];
+        TriangleListPrimitive triangles[];
+        TextPrimitive texts[];
+        ModelPrimitive models[];
+    }
+    struct SceneUpdate {
+        SceneEntityDeletion deletions[];
+        SceneEntity entities[];
+    }
+    struct CompressedImage {
+        Time timestamp;
+        string frame_id;
+        uint8_t data[];
+        string format;
+    }
+    struct CompressedVideo {
+        Time timestamp;
+        string frame_id;
+        uint8_t data[];
+        string format;
+    }
+    struct Point2 @naked {
+        double x = 0.000000;
+        double y = 0.000000;
+    }
+    struct Vector2 @naked {
+        double x = 0.000000;
+        double y = 0.000000;
+    }
+    struct CircleAnnotation @naked {
+        Time timestamp;
+        Point2 position;
+        double diameter = 1.000000;
+        double thickness = 1.000000;
+        Color fill_color;
+        Color outline_color;
+    }
+    struct PointsAnnotation @naked {
+        Time timestamp;
+        PointsAnnotationType type;
+        Point2 points[];
+        Color outline_color;
+        Color outline_colors[];
+        Color fill_color;
+        double thickness = 1.000000;
+    }
+    struct TextAnnotation @naked {
+        Time timestamp;
+        Point2 position;
+        string text;
+        double font_size = 12.000000;
+        Color text_color;
+        Color background_color;
+    }
+    struct ImageAnnotations {
+        CircleAnnotation circles[];
+        PointsAnnotation points[];
+        TextAnnotation texts[];
+    }
+    struct PackedElementField @naked {
+        string name;
+        uint32_t offset = 0;
+        NumericField type;
+    }
+    struct PointCloud {
+        Time timestamp;
+        string frame_id;
+        Pose pose;
+        uint32_t point_stride = 0;
+        PackedElementField fields[];
+        uint8_t data[];
+    }
+    struct Grid {
+        Time timestamp;
+        string frame_id;
+        Pose pose;
+        uint32_t column_count = 0;
+        Vector2 cell_size;
+        uint32_t row_stride = 0;
+        uint32_t cell_stride = 0;
+        PackedElementField fields[];
+        uint8_t data[];
+    }
+    struct GeoJSON {
+        string geojson;
+    }
+}

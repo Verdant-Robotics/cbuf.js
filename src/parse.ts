@@ -54,7 +54,7 @@ export function preprocess(
   return preprocessRecursive(messageDefinition, importedDefinitions, new Set())
 }
 
-export function computeHashValue(
+function computeHashValue(
   nameToSchema: Map<string, CbufMessageDefinition>,
   namespaces: string[],
   typeName: string,
@@ -66,13 +66,18 @@ export function computeHashValue(
   buf.push(`struct ${typeName} \n`)
   for (const field of msgdef.definitions) {
     if (field.isArray === true) {
-      buf.push(`[${field.arrayLength ?? 0}] `)
+      buf.push(`[${field.arrayLength ?? field.arrayUpperBound ?? 0}] `)
     }
 
     if (field.isComplex === true) {
+      // Complex type
       const nestedHash = computeHashValue(nameToSchema, msgdef.namespaces, field.type)
-      buf.push(`${nestedHash} ${field.name};\n`)
+      buf.push(`${nestedHash.toString(16).toUpperCase()} ${field.name};\n`)
+    } else if (field.valueText != undefined) {
+      // Enum type
+      buf.push(`${field.valueText} ${field.name};\n`)
     } else {
+      // Primitive type
       buf.push(`${elementTypeToStrC(field.type)} ${field.name}; \n`) // The space is intentional
     }
   }
@@ -174,10 +179,35 @@ export function parse(messageDefinition: string): CbufMessageDefinition[] {
     throw new Error("No struct definitions found")
   }
 
+  // Resolve complex types to fully qualified names
+  for (const result of parsed) {
+    for (const field of result.definitions) {
+      if (field.isComplex === true) {
+        const resolved = lookupMsgdef(map, result.namespaces, field.type)
+        if (!field.type.includes("::") && resolved.namespaces.length > 0) {
+          field.type = resolved.namespaces.concat(field.type).join("::")
+        }
+      }
+    }
+  }
+
   // Compute hash values
   for (const result of parsed) {
     if (!result.isEnum) {
       result.hashValue = computeHashValue(map, result.namespaces, result.name)
+    }
+  }
+
+  for (const result of parsed) {
+    for (const field of result.definitions) {
+      // Rewrite short_string types as fixed-size strings
+      if (field.type === "short_string") {
+        field.type = "string"
+        field.upperBound = 16
+      }
+
+      // Remove the temporary `valueText` field from enum fields
+      delete field.valueText
     }
   }
 
@@ -258,6 +288,7 @@ function parseEntities(
           hashValue: BigInt(0),
           isEnum: true,
           isEnumClass: entity.isEnumClass ?? false,
+          isNakedStruct: false,
         })
         break
       }
@@ -270,14 +301,18 @@ function parseEntities(
             // Check if this type resolves to an enum
             const enumDefinition = lookupEnum(enums, namespaces, definition.type)
             if (enumDefinition) {
-              // Rewrite the field as a uint32
+              // Rewrite the field as a uint32, preserving the original enum type without namespace
+              // in `valueText`. This is only used for hashing, and is cleared before returning the
+              // definition
+              definition.valueText = definition.type.split("::").pop()!
               definition.type = "uint32"
-              definition.isComplex = undefined
+              delete definition.isComplex
 
               if (
                 definition.defaultValue != undefined &&
                 typeof definition.defaultValue !== "number"
               ) {
+                // Rewrite the default value as a number
                 const enumValue = enumDefinition.definitions.find(
                   (d) => d.name === definition.defaultValue,
                 )
@@ -323,7 +358,8 @@ function parseEntities(
           definitions,
           hashValue: BigInt(0),
           isEnum: false,
-          isNakedStruct: entity.isNakedStruct,
+          isEnumClass: false,
+          isNakedStruct: entity.isNakedStruct ?? false,
         })
         break
       }

@@ -22,6 +22,8 @@ const METADATA_DEFINITION: CbufMessageDefinition = {
   namespaces: ["cbufmsg"],
   hashValue: 0xbe6738d544ab72c6n,
   isEnum: false,
+  isEnumClass: false,
+  isNakedStruct: false,
   definitions: [
     { name: "msg_hash", type: "uint64" },
     { name: "msg_name", type: "string" },
@@ -55,7 +57,9 @@ export function createSchemaMaps(
   const hashMap = new Map<bigint, CbufMessageDefinition>()
   for (const schema of schemas) {
     messageMap.set(schema.name, schema)
-    hashMap.set(schema.hashValue, schema)
+    if (!schema.isEnum) {
+      hashMap.set(schema.hashValue, schema)
+    }
   }
   return [messageMap, hashMap]
 }
@@ -128,7 +132,9 @@ export function deserializeMessage(
   const msgdef =
     hashValue === METADATA_DEFINITION.hashValue ? METADATA_DEFINITION : hashToSchema.get(hashValue)
   if (!msgdef) {
-    throw new Error(`cbuf hash value ${hashValue} not found in the hash map`)
+    throw new Error(
+      `cbuf hash value ${hashValue} not found in the hash map with ${hashToSchema.size} entries`,
+    )
   }
 
   // message data
@@ -170,6 +176,7 @@ function deserializeNakedMessage(
         arrayLength = view.getUint32(offset + innerOffset, true)
         innerOffset += 4
       }
+      const arrayCapacity = field.arrayUpperBound ?? arrayLength
 
       // The byte offset into the underlying ArrayBuffer we are reading from, for constructing
       // typed arrays
@@ -177,62 +184,63 @@ function deserializeNakedMessage(
 
       switch (field.type) {
         case "bool": {
-          const array = []
+          const array: boolean[] = []
           for (let i = 0; i < arrayLength; i++) {
-            array.push(view.getUint8(offset + innerOffset) !== 0)
-            innerOffset += 1
+            array.push(view.getUint8(offset + innerOffset + i) !== 0)
           }
+          innerOffset += arrayCapacity
           output[field.name] = array
           break
         }
         case "uint8":
           output[field.name] = typedArray(Uint8Array, view.buffer, bufferOffset, arrayLength)
-          innerOffset += arrayLength
+          innerOffset += arrayCapacity
           break
         case "int8":
           output[field.name] = typedArray(Int8Array, view.buffer, bufferOffset, arrayLength)
-          innerOffset += arrayLength
+          innerOffset += arrayCapacity
           break
         case "uint16":
           output[field.name] = typedArray(Uint16Array, view.buffer, bufferOffset, arrayLength)
-          innerOffset += arrayLength * 2
+          innerOffset += arrayCapacity * 2
           break
         case "int16":
           output[field.name] = typedArray(Int16Array, view.buffer, bufferOffset, arrayLength)
-          innerOffset += arrayLength * 2
+          innerOffset += arrayCapacity * 2
           break
         case "uint32":
           output[field.name] = typedArray(Uint32Array, view.buffer, bufferOffset, arrayLength)
-          innerOffset += arrayLength * 4
+          innerOffset += arrayCapacity * 4
           break
         case "int32":
           output[field.name] = typedArray(Int32Array, view.buffer, bufferOffset, arrayLength)
-          innerOffset += arrayLength * 4
+          innerOffset += arrayCapacity * 4
           break
         case "uint64":
           output[field.name] = typedArray(BigUint64Array, view.buffer, bufferOffset, arrayLength)
-          innerOffset += arrayLength * 8
+          innerOffset += arrayCapacity * 8
           break
         case "int64":
           output[field.name] = typedArray(BigInt64Array, view.buffer, bufferOffset, arrayLength)
-          innerOffset += arrayLength * 8
+          innerOffset += arrayCapacity * 8
           break
         case "float32":
           output[field.name] = typedArray(Float32Array, view.buffer, bufferOffset, arrayLength)
-          innerOffset += arrayLength * 4
+          innerOffset += arrayCapacity * 4
           break
         case "float64":
           output[field.name] = typedArray(Float64Array, view.buffer, bufferOffset, arrayLength)
-          innerOffset += arrayLength * 8
+          innerOffset += arrayCapacity * 8
           break
         default: {
           // string array or nested struct array. Read each element individually and push onto an
           // array
-          const array = []
+          const array: unknown[] = []
           const fieldOutput: Record<string, unknown> = {}
+          let singleElementSize = 0
           for (let i = 0; i < arrayLength; i++) {
             const curOffset = offset + innerOffset
-            innerOffset += readNonArrayField(
+            singleElementSize = readNonArrayField(
               schemaMap,
               hashMap,
               field,
@@ -241,8 +249,11 @@ function deserializeNakedMessage(
               curOffset,
               fieldOutput,
             )
+            innerOffset += singleElementSize
             array.push(fieldOutput[field.name])
           }
+          // Add the difference between the array length and the array capacity to the inner offset
+          innerOffset += (arrayCapacity - arrayLength) * singleElementSize
           output[field.name] = array
           break
         }
@@ -297,7 +308,7 @@ function readNonArrayField(
   if (field.isComplex === true) {
     const nestedMsgdef = lookupMsgdef(schemaMap, namespaces, field.type)
 
-    if (nestedMsgdef.isNakedStruct === true) {
+    if (nestedMsgdef.isNakedStruct) {
       // Nested naked struct (no header). Just deserialize the nested message
       const nestedMessage = {}
       innerOffset += deserializeNakedMessage(
@@ -371,12 +382,6 @@ function readBasicType(
     case "float64":
       message[field.name] = view.getFloat64(offset, true)
       return 8
-    case "short_string": {
-      const bytes = new Uint8Array(view.buffer, view.byteOffset + offset, 15)
-      const str = textDecoder.decode(bytes)
-      message[field.name] = str.split("\0").shift()
-      return 15
-    }
     case "string": {
       let curOffset = 0
       let length = field.upperBound
@@ -439,9 +444,14 @@ function serializedNakedMessageSize(
     if (field.isArray === true) {
       // Array field (fixed or variable length)
       const arrayValue = isArray(value) ? value : []
-      let arrayLength = field.arrayLength
+      let arrayLength = field.arrayLength ?? field.arrayUpperBound
       if (arrayLength == undefined) {
         arrayLength = arrayValue.length
+        size += 4
+      }
+
+      if (field.arrayUpperBound != undefined) {
+        // "Compact" arrays are prefixed with a 4-byte length
         size += 4
       }
 
@@ -465,36 +475,40 @@ function serializedNakedMessageSize(
         case "float64":
           size += arrayLength * 8
           break
-        case "short_string":
-          size += arrayLength * 15
-          break
         case "string":
-          if (field.arrayLength == undefined && field.upperBound == undefined) {
+          if (field.upperBound == undefined) {
             // Variable length string array. Each element has a 4-byte length prefix
             size += arrayLength * 4
-            for (const element of arrayValue) {
+            for (let i = 0; i < arrayLength; i++) {
+              const element = arrayValue[i]
               size += typeof element === "string" ? element.length : 0
             }
+          } else {
+            // Fixed length string array
+            size += arrayLength * field.upperBound
           }
           break
-        default:
+        default: {
           // Nested struct array. Compute the size of each element individually
-          if (arrayValue.length > 0) {
-            const nestedMsgdef = lookupMsgdef(nameToSchema, msgdef.namespaces, field.type)
-            for (const element of arrayValue) {
-              const nestedElement = (
-                element != undefined && typeof element === "object" ? element : {}
-              ) as Record<string, unknown>
-              size += serializedNakedMessageSize(nameToSchema, nestedMsgdef, nestedElement)
-            }
+          const nestedMsgdef = lookupMsgdef(nameToSchema, msgdef.namespaces, field.type)
+          if (!nestedMsgdef.isNakedStruct) {
+            size += arrayLength * HEADER_SIZE
+          }
+          for (let i = 0; i < arrayLength; i++) {
+            const element = arrayValue[i]
+            const nestedElement = (
+              element != undefined && typeof element === "object" ? element : {}
+            ) as Record<string, unknown>
+            size += serializedNakedMessageSize(nameToSchema, nestedMsgdef, nestedElement)
           }
           break
+        }
       }
     } else {
       if (field.isComplex === true) {
         const nestedMsgdef = lookupMsgdef(nameToSchema, msgdef.namespaces, field.type)
 
-        if (nestedMsgdef.isNakedStruct !== true) {
+        if (!nestedMsgdef.isNakedStruct) {
           size += HEADER_SIZE
         }
 
@@ -534,9 +548,6 @@ function serializedNakedMessageSize(
             size += length
             break
           }
-          case "short_string":
-            size += 15
-            break
           default:
             throw new Error(`Unsupported type ${field.type}`)
         }
@@ -634,9 +645,11 @@ function serializeNakedMessage(
         view.setUint32(offset + innerOffset, arrayLength, true)
         innerOffset += 4
       }
+      const arrayCapacity = field.arrayUpperBound ?? arrayLength
 
+      let singleElementSize = 0
       for (let i = 0; i < arrayLength; i++) {
-        innerOffset += serializeNonArrayField(
+        singleElementSize = serializeNonArrayField(
           nameToSchema,
           msgdef.namespaces,
           field,
@@ -644,7 +657,11 @@ function serializeNakedMessage(
           view,
           offset + innerOffset,
         )
+        innerOffset += singleElementSize
       }
+
+      // Add the difference between the array length and the array capacity to the inner offset
+      innerOffset += (arrayCapacity - arrayLength) * singleElementSize
     } else {
       innerOffset += serializeNonArrayField(
         nameToSchema,
@@ -676,11 +693,11 @@ function serializeNonArrayField(
   if (field.isComplex === true) {
     const nestedMsgdef = lookupMsgdef(nameToSchema, namespaces, field.type)
 
-    if (nestedMsgdef.isNakedStruct !== true) {
+    if (!nestedMsgdef.isNakedStruct) {
       const nestedSize = serializedNakedMessageSize(
         nameToSchema,
         nestedMsgdef,
-        value as Record<string, unknown>,
+        (value ?? {}) as Record<string, unknown>,
       )
 
       view.setUint32(curOffset + innerOffset, 0x56444e54, true)
@@ -696,7 +713,7 @@ function serializeNonArrayField(
     innerOffset += serializeNakedMessage(
       nameToSchema,
       nestedMsgdef,
-      value as Record<string, unknown>,
+      (value ?? {}) as Record<string, unknown>,
       view,
       curOffset + innerOffset,
     )
@@ -761,16 +778,6 @@ function serializeNonArrayField(
           }
           innerOffset += length
         }
-        break
-      }
-      case "short_string": {
-        const str = typeof value === "string" ? value : ""
-        const bytes = textEncoder.encode(str)
-        const byteOffset = view.byteOffset + curOffset
-        const dest = new Uint8Array(view.buffer, byteOffset, 15)
-        dest.fill(0)
-        dest.set(bytes.slice(0, 15))
-        innerOffset += 15
         break
       }
       default:

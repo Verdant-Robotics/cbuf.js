@@ -65,7 +65,14 @@ namespace ns2 {
   }
 }`),
   )
-  // const hashValue2 = nameToSchema2.get("b")!.hashValue
+
+  const [nameToSchema3, hashToSchema3] = createSchemaMaps(
+    parse(`struct a { short_string b; } struct c { double d; short_string e; int f; a g[2]; }`),
+  )
+
+  const [nameToSchema4, hashToSchema4] = createSchemaMaps(
+    parse(`struct a { int b; int c[3] @compact; int d; }`),
+  )
 
   describe("createSchemaMaps", () => {
     it("should create valid schema maps", () => {
@@ -74,6 +81,12 @@ namespace ns2 {
 
       expect(nameToSchema2.size).toEqual(3)
       expect(hashToSchema2.size).toEqual(3)
+
+      expect(nameToSchema3.size).toEqual(2)
+      expect(hashToSchema3.size).toEqual(2)
+
+      expect(nameToSchema4.size).toEqual(1)
+      expect(hashToSchema4.size).toEqual(1)
     })
   })
 
@@ -103,7 +116,7 @@ namespace ns2 {
         timestamp: 0,
         message: {},
       })
-      expect(size1).toEqual(CBUF_PREAMBLE_SIZE + 216)
+      expect(size1).toEqual(CBUF_PREAMBLE_SIZE + 220)
 
       const size2 = serializedMessageSize(nameToSchema2, {
         typeName: "ns2::outer",
@@ -128,7 +141,45 @@ namespace ns2 {
           },
         },
       })
-      expect(size2).toEqual(CBUF_PREAMBLE_SIZE + 316)
+      expect(size2).toEqual(CBUF_PREAMBLE_SIZE + 320)
+    })
+
+    it("should calculate the size of a fixed complex array message", () => {
+      const size1 = serializedMessageSize(nameToSchema3, {
+        typeName: "c",
+        timestamp: 0,
+        message: {},
+      })
+      expect(size1).toEqual(CBUF_PREAMBLE_SIZE + 108)
+
+      const size2 = serializedMessageSize(nameToSchema3, {
+        typeName: "c",
+        timestamp: 1,
+        message: {
+          d: [{ b: "x" }, { b: "y" }],
+        },
+      })
+      expect(size2).toEqual(CBUF_PREAMBLE_SIZE + 108)
+    })
+
+    it("should calculate the size of a fixed compact array message", () => {
+      const size1 = serializedMessageSize(nameToSchema4, {
+        typeName: "a",
+        timestamp: 0,
+        message: {},
+      })
+      expect(size1).toEqual(CBUF_PREAMBLE_SIZE + 24)
+
+      const size2 = serializedMessageSize(nameToSchema4, {
+        typeName: "a",
+        timestamp: 1,
+        message: {
+          b: 1,
+          c: [2, 3],
+          d: 4,
+        },
+      })
+      expect(size2).toEqual(CBUF_PREAMBLE_SIZE + 24)
     })
   })
 
@@ -193,15 +244,15 @@ namespace ns2 {
       const result = serializeMessage(nameToSchema2, cbuf)
       const view = new DataView(result)
       expect(new Uint8Array(result, 0, 4)).toEqual(new Uint8Array(CBUF_MAGIC))
-      expect(view.getUint32(4, true)).toEqual(CBUF_PREAMBLE_SIZE + 316)
-      expect(view.getBigUint64(8, true)).toEqual(655669508679171342n)
+      expect(view.getUint32(4, true)).toEqual(CBUF_PREAMBLE_SIZE + 320)
+      expect(view.getBigUint64(8, true)).toEqual(7694535235651410307n)
       expect(view.getFloat64(16, true)).toEqual(1)
       expect(view.getUint8(24)).toEqual(1)
 
       // CBUF_PREAMBLE repeats again for ns1::complex struct
       expect(new Uint8Array(result, 25, 4)).toEqual(new Uint8Array(CBUF_MAGIC))
-      expect(view.getUint32(29, true)).toEqual(311)
-      expect(view.getBigUint64(33, true)).toEqual(1731498370440139439n)
+      expect(view.getUint32(29, true)).toEqual(315)
+      expect(view.getBigUint64(33, true)).toEqual(17133121764548562747n)
       expect(view.getFloat64(41, true)).toEqual(0)
 
       // ns1::nested is @naked, so no preamble. Next field is nested.text
@@ -209,64 +260,130 @@ namespace ns2 {
       expect(new TextDecoder().decode(result.slice(53, 53 + 3))).toEqual("abc")
       expect(view.getUint32(56, true)).toEqual(6)
       expect(new TextDecoder().decode(result.slice(60, 60 + 6))).toEqual("abcdef")
-      expect(new TextDecoder().decode(result.slice(66, 66 + 15))).toEqual("abcdefghi\0\0\0\0\0\0")
-      expect(view.getUint8(81)).toEqual(1)
-      expect(view.getInt8(82)).toEqual(-1)
-      expect(view.getInt16(83, true)).toEqual(-2)
-      expect(view.getInt32(85, true)).toEqual(-3)
-      expect(view.getBigInt64(89, true)).toEqual(-4n)
-      expect(view.getUint8(97)).toEqual(255)
-      expect(view.getUint16(98, true)).toEqual(65535)
-      expect(view.getUint32(100, true)).toEqual(4294967295)
-      expect(view.getBigUint64(104, true)).toEqual(18446744073709551615n)
-      expect(view.getFloat32(112, true)).toEqual(-10)
-      expect(view.getFloat64(116, true)).toEqual(-11)
-      expect(view.getUint32(124, true)).toEqual(1) // Array length (n)
-      expect(view.getUint32(128, true)).toEqual(12) // String length (n)
-      expect(new TextDecoder().decode(result.slice(132, 132 + 12))).toEqual("abcdefghijkl")
-      expect(view.getUint32(144, true)).toEqual(3) // Array length (o)
-      expect(new TextDecoder().decode(result.slice(148, 148 + 15))).toEqual(
-        "a\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+      expect(new TextDecoder().decode(result.slice(66, 66 + 16))).toEqual("abcdefghi\0\0\0\0\0\0\0")
+      expect(view.getUint8(82)).toEqual(1)
+      expect(view.getInt8(83)).toEqual(-1)
+      expect(view.getInt16(84, true)).toEqual(-2)
+      expect(view.getInt32(86, true)).toEqual(-3)
+      expect(view.getBigInt64(90, true)).toEqual(-4n)
+      expect(view.getUint8(98)).toEqual(255)
+      expect(view.getUint16(99, true)).toEqual(65535)
+      expect(view.getUint32(101, true)).toEqual(4294967295)
+      expect(view.getBigUint64(105, true)).toEqual(18446744073709551615n)
+      expect(view.getFloat32(113, true)).toEqual(-10)
+      expect(view.getFloat64(117, true)).toEqual(-11)
+      expect(view.getUint32(125, true)).toEqual(1) // Array length (n)
+      expect(view.getUint32(129, true)).toEqual(12) // String length (n)
+      expect(new TextDecoder().decode(result.slice(133, 133 + 12))).toEqual("abcdefghijkl")
+      expect(view.getUint32(145, true)).toEqual(3) // Array length (o)
+      expect(new TextDecoder().decode(result.slice(149, 149 + 16))).toEqual(
+        "a\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
       )
-      expect(new TextDecoder().decode(result.slice(163, 163 + 15))).toEqual(
-        "b\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+      expect(new TextDecoder().decode(result.slice(165, 165 + 16))).toEqual(
+        "b\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
       )
-      expect(new TextDecoder().decode(result.slice(178, 178 + 15))).toEqual(
-        "c\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+      expect(new TextDecoder().decode(result.slice(181, 181 + 16))).toEqual(
+        "c\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
       )
-      expect(view.getUint32(193, true)).toEqual(1) // Array length (p)
-      expect(view.getUint8(197)).toEqual(1)
-      expect(view.getUint32(198, true)).toEqual(1) // Array length (q)
-      expect(view.getInt8(202)).toEqual(-1)
-      expect(view.getUint32(203, true)).toEqual(2) // Array length (r)
-      expect(view.getInt16(207, true)).toEqual(-1)
-      expect(view.getInt16(209, true)).toEqual(-2)
-      expect(view.getUint32(211, true)).toEqual(3) // Array length (s)
-      expect(view.getInt32(215, true)).toEqual(-1)
-      expect(view.getInt32(219, true)).toEqual(-2)
-      expect(view.getInt32(223, true)).toEqual(-3)
-      expect(view.getUint32(227, true)).toEqual(3) // Array length (t)
-      expect(view.getBigInt64(231, true)).toEqual(1n)
-      expect(view.getBigInt64(239, true)).toEqual(2n)
-      expect(view.getBigInt64(247, true)).toEqual(3n)
-      expect(view.getUint32(255, true)).toEqual(1) // Array length (u)
-      expect(view.getUint8(259)).toEqual(255)
-      expect(view.getUint32(260, true)).toEqual(2) // Array length (v)
-      expect(view.getUint16(264, true)).toEqual(65535)
-      expect(view.getUint16(266, true)).toEqual(65534)
-      expect(view.getUint32(268, true)).toEqual(2) // Array length (w)
-      expect(view.getUint32(272, true)).toEqual(4294967295)
-      expect(view.getUint32(276, true)).toEqual(4294967294)
-      expect(view.getUint32(280, true)).toEqual(3) // Array length (x)
-      expect(view.getBigUint64(284, true)).toEqual(18446744073709551615n)
-      expect(view.getBigUint64(292, true)).toEqual(18446744073709551614n)
-      expect(view.getBigUint64(300, true)).toEqual(18446744073709551613n)
-      expect(view.getUint32(308, true)).toEqual(1) // Array length (y)
-      expect(view.getFloat32(312, true)).toEqual(1)
-      expect(view.getUint32(316, true)).toEqual(2) // Array length (z)
-      expect(view.getFloat64(320, true)).toEqual(1)
-      expect(view.getFloat64(328, true)).toEqual(2)
-      expect(view.getInt32(336, true)).toEqual(42) // Default value for c
+      expect(view.getUint32(197, true)).toEqual(1) // Array length (p)
+      expect(view.getUint8(201)).toEqual(1)
+      expect(view.getUint32(202, true)).toEqual(1) // Array length (q)
+      expect(view.getInt8(206)).toEqual(-1)
+      expect(view.getUint32(207, true)).toEqual(2) // Array length (r)
+      expect(view.getInt16(211, true)).toEqual(-1)
+      expect(view.getInt16(213, true)).toEqual(-2)
+      expect(view.getUint32(215, true)).toEqual(3) // Array length (s)
+      expect(view.getInt32(219, true)).toEqual(-1)
+      expect(view.getInt32(223, true)).toEqual(-2)
+      expect(view.getInt32(227, true)).toEqual(-3)
+      expect(view.getUint32(231, true)).toEqual(3) // Array length (t)
+      expect(view.getBigInt64(235, true)).toEqual(1n)
+      expect(view.getBigInt64(243, true)).toEqual(2n)
+      expect(view.getBigInt64(251, true)).toEqual(3n)
+      expect(view.getUint32(259, true)).toEqual(1) // Array length (u)
+      expect(view.getUint8(263)).toEqual(255)
+      expect(view.getUint32(264, true)).toEqual(2) // Array length (v)
+      expect(view.getUint16(268, true)).toEqual(65535)
+      expect(view.getUint16(270, true)).toEqual(65534)
+      expect(view.getUint32(272, true)).toEqual(2) // Array length (w)
+      expect(view.getUint32(276, true)).toEqual(4294967295)
+      expect(view.getUint32(280, true)).toEqual(4294967294)
+      expect(view.getUint32(284, true)).toEqual(3) // Array length (x)
+      expect(view.getBigUint64(288, true)).toEqual(18446744073709551615n)
+      expect(view.getBigUint64(296, true)).toEqual(18446744073709551614n)
+      expect(view.getBigUint64(304, true)).toEqual(18446744073709551613n)
+      expect(view.getUint32(312, true)).toEqual(1) // Array length (y)
+      expect(view.getFloat32(316, true)).toEqual(1)
+      expect(view.getUint32(320, true)).toEqual(2) // Array length (z)
+      expect(view.getFloat64(324, true)).toEqual(1)
+      expect(view.getFloat64(332, true)).toEqual(2)
+      expect(view.getInt32(340, true)).toEqual(42) // Default value for c
+    })
+
+    it("should serialize a fixed complex array message", () => {
+      const cbuf = {
+        typeName: "c",
+        timestamp: 1,
+        message: {
+          d: 2,
+          e: "3",
+          f: 4,
+          g: [{ b: "5" }, { b: "6" }],
+        },
+      }
+      const result = serializeMessage(nameToSchema3, cbuf)
+      const view = new DataView(result)
+      expect(new Uint8Array(result, 0, 4)).toEqual(new Uint8Array(CBUF_MAGIC))
+      expect(view.getUint32(4, true)).toEqual(CBUF_PREAMBLE_SIZE + 108)
+      expect(view.getBigUint64(8, true)).toEqual(16648591171689211395n)
+      expect(view.getFloat64(16, true)).toEqual(1)
+      expect(view.getFloat64(24, true)).toEqual(2)
+      expect(new TextDecoder().decode(result.slice(32, 32 + 16))).toEqual(
+        "3\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+      )
+      expect(view.getInt32(48, true)).toEqual(4)
+      // CBUF_PREAMBLE repeats again for the first struct in the array
+      expect(new Uint8Array(result, 52, 4)).toEqual(new Uint8Array(CBUF_MAGIC))
+      expect(view.getUint32(56, true)).toEqual(40)
+      expect(view.getBigUint64(60, true)).toEqual(882380958363159241n)
+      expect(view.getFloat64(68, true)).toEqual(0)
+      // first short_string
+      expect(new TextDecoder().decode(result.slice(76, 76 + 16))).toEqual(
+        "5\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+      )
+      // CBUF_PREAMBLE repeats again for the second struct in the array
+      expect(new Uint8Array(result, 92, 4)).toEqual(new Uint8Array(CBUF_MAGIC))
+      expect(view.getUint32(96, true)).toEqual(40)
+      expect(view.getBigUint64(100, true)).toEqual(882380958363159241n)
+      expect(view.getFloat64(108, true)).toEqual(0)
+      // second short_string
+      expect(new TextDecoder().decode(result.slice(116, 116 + 16))).toEqual(
+        "6\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+      )
+    })
+
+    it("should serialize a fixed compact array message", () => {
+      const cbuf = {
+        typeName: "a",
+        timestamp: 0.5,
+        message: {
+          b: 1,
+          c: [3, 4],
+          d: 5,
+        },
+      }
+      const result = serializeMessage(nameToSchema4, cbuf)
+      const view = new DataView(result)
+      expect(new Uint8Array(result, 0, 4)).toEqual(new Uint8Array(CBUF_MAGIC))
+      expect(view.getUint32(4, true)).toEqual(CBUF_PREAMBLE_SIZE + 24)
+      expect(view.getBigUint64(8, true)).toEqual(10084096081252480801n)
+      expect(view.getFloat64(16, true)).toEqual(0.5)
+      expect(view.getInt32(24, true)).toEqual(1)
+      expect(view.getUint32(28, true)).toEqual(2)
+      expect(view.getUint32(32, true)).toEqual(3)
+      expect(view.getUint32(36, true)).toEqual(4)
+      expect(view.getUint32(40, true)).toEqual(0)
+      expect(view.getUint32(44, true)).toEqual(5)
     })
   })
 
@@ -297,9 +414,9 @@ namespace ns2 {
     it("should round-trip a complex message", () => {
       const cbuf = {
         typeName: "ns2::outer",
-        size: 315,
+        size: 319,
         variant: 9,
-        hashValue: 655669508679171342n,
+        hashValue: 7694535235651410307n,
         timestamp: 3,
         message: {
           a: true,
@@ -337,10 +454,55 @@ namespace ns2 {
       }
       const serialized = serializeMessage(nameToSchema2, cbuf)
       // Ensure variant parsing works by modifying the size field to include a variant
-      new DataView(serialized).setUint32(4, (9 << 27) | 315, true)
+      new DataView(serialized).setUint32(4, (9 << 27) | 319, true)
       const deserialized = deserializeMessage(
         nameToSchema2,
         hashToSchema2,
+        new Uint8Array(serialized),
+      )
+      expect(deserialized).toEqual(cbuf)
+    })
+
+    it("should round-trip a fixed complex array message", () => {
+      const cbuf = {
+        typeName: "c",
+        size: 132,
+        variant: 0,
+        hashValue: 16648591171689211395n,
+        timestamp: 3,
+        message: {
+          d: 0,
+          e: "",
+          f: 0,
+          g: [{ b: "x" }, { b: "TestAllFifteenC" }],
+        },
+      }
+      const serialized = serializeMessage(nameToSchema3, cbuf)
+      const deserialized = deserializeMessage(
+        nameToSchema3,
+        hashToSchema3,
+        new Uint8Array(serialized),
+      )
+      expect(deserialized).toEqual(cbuf)
+    })
+
+    it("should round-trip a fixed compact array message", () => {
+      const cbuf = {
+        typeName: "a",
+        size: 48,
+        variant: 0,
+        hashValue: 10084096081252480801n,
+        timestamp: 0.5,
+        message: {
+          b: 1,
+          c: new Int32Array([3, 4]),
+          d: 5,
+        },
+      }
+      const serialized = serializeMessage(nameToSchema4, cbuf)
+      const deserialized = deserializeMessage(
+        nameToSchema4,
+        hashToSchema4,
         new Uint8Array(serialized),
       )
       expect(deserialized).toEqual(cbuf)

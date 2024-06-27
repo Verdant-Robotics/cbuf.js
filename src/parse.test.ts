@@ -1,7 +1,13 @@
 // parse.test.ts
 // Description: Jest tests for the CBUF grammar
 
+import { readFileSync } from "fs"
+import { join } from "path"
+
 import { parse, preprocess } from "./parse"
+import { createSchemaMaps } from "./serde"
+
+const TEST_DATA_DIR = join(__dirname, "..", "test", "data")
 
 describe("parse", () => {
   describe("basic structs", () => {
@@ -13,6 +19,8 @@ describe("parse", () => {
           namespaces: [],
           hashValue: 3808120302725858088n,
           isEnum: false,
+          isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               type: "bool",
@@ -31,6 +39,8 @@ describe("parse", () => {
           namespaces: [],
           hashValue: 4036783964384908627n,
           isEnum: false,
+          isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               type: "bool",
@@ -39,6 +49,31 @@ describe("parse", () => {
             {
               type: "int32",
               name: "c",
+            },
+          ],
+        },
+      ])
+    })
+
+    it("should handle short_string", () => {
+      const result = parse(`namespace ns1 { struct a { double b; short_string c; } }`)
+      expect(result).toEqual([
+        {
+          name: "ns1::a",
+          namespaces: ["ns1"],
+          hashValue: 16459951902678586258n,
+          isEnum: false,
+          isEnumClass: false,
+          isNakedStruct: false,
+          definitions: [
+            {
+              type: "float64",
+              name: "b",
+            },
+            {
+              type: "string",
+              name: "c",
+              upperBound: 16,
             },
           ],
         },
@@ -55,6 +90,8 @@ describe("parse", () => {
           namespaces: [],
           hashValue: 3808120302725858088n,
           isEnum: false,
+          isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               type: "bool",
@@ -75,6 +112,8 @@ describe("parse", () => {
           namespaces: [],
           hashValue: 4036783964384908627n,
           isEnum: false,
+          isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               type: "bool",
@@ -97,6 +136,7 @@ describe("parse", () => {
           namespaces: [],
           hashValue: 3808120302725858088n,
           isEnum: false,
+          isEnumClass: false,
           isNakedStruct: true,
           definitions: [
             {
@@ -116,11 +156,35 @@ describe("parse", () => {
           namespaces: [],
           hashValue: 16587707399711602108n,
           isEnum: false,
+          isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               type: "uint32",
               name: "b",
               isArray: true,
+            },
+          ],
+        },
+      ])
+    })
+
+    it("should parse fixed array fields", () => {
+      const result = parse("struct a { u32 b[16] @compact; }")
+      expect(result).toEqual([
+        {
+          name: "a",
+          namespaces: [],
+          hashValue: 11481123529866194227n,
+          isEnum: false,
+          isEnumClass: false,
+          isNakedStruct: false,
+          definitions: [
+            {
+              type: "uint32",
+              name: "b",
+              isArray: true,
+              arrayUpperBound: 16,
             },
           ],
         },
@@ -147,6 +211,8 @@ describe("parse", () => {
           namespaces: [],
           hashValue: 3808120302725858088n,
           isEnum: false,
+          isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               type: "bool",
@@ -166,6 +232,8 @@ describe("parse", () => {
           namespaces: [],
           hashValue: 1509765891216373104n,
           isEnum: false,
+          isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               type: "bool",
@@ -188,6 +256,8 @@ describe("parse", () => {
           namespaces: [],
           hashValue: 8994656239654062125n,
           isEnum: false,
+          isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               type: "float64",
@@ -219,6 +289,7 @@ describe("parse", () => {
           hashValue: 0n,
           isEnum: true,
           isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               name: "b",
@@ -243,8 +314,10 @@ describe("parse", () => {
         {
           name: "e",
           namespaces: [],
-          hashValue: 14341441348656048252n,
+          hashValue: 15672240771935124165n,
           isEnum: false,
+          isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               type: "uint32",
@@ -265,6 +338,7 @@ describe("parse", () => {
           hashValue: 0n,
           isEnum: true,
           isEnumClass: true,
+          isNakedStruct: false,
           definitions: [
             {
               name: "b",
@@ -279,6 +353,8 @@ describe("parse", () => {
           namespaces: [],
           hashValue: 3909204515753383596n,
           isEnum: false,
+          isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               type: "bool",
@@ -298,6 +374,7 @@ describe("parse", () => {
           hashValue: 0n,
           isEnum: true,
           isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               name: "b",
@@ -334,8 +411,10 @@ describe("parse", () => {
         {
           name: "b",
           namespaces: [],
-          hashValue: 16366175273103426901n,
+          hashValue: 15672240644079790878n,
           isEnum: false,
+          isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               type: "uint32",
@@ -361,6 +440,8 @@ describe("parse", () => {
           namespaces: [],
           hashValue: 16366175273103390964n,
           isEnum: false,
+          isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               type: "uint32",
@@ -401,6 +482,8 @@ describe("parse", () => {
           namespaces: ["a"],
           hashValue: 12820973806649668735n,
           isEnum: false,
+          isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               type: "bool",
@@ -427,6 +510,7 @@ namespace ns1 {
 namespace ns2 {
   enum e { f }
   struct g { e h; ns2::e i; ns1::a j; ns1::c k; }
+  struct l { g m; }
 }`)
       expect(result).toEqual([
         {
@@ -435,6 +519,7 @@ namespace ns2 {
           hashValue: 0n,
           isEnum: true,
           isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               name: "b",
@@ -447,8 +532,10 @@ namespace ns2 {
         {
           name: "ns1::c",
           namespaces: ["ns1"],
-          hashValue: 2299624816536008030n,
+          hashValue: 4029375906261562343n,
           isEnum: false,
+          isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               type: "uint32",
@@ -462,6 +549,7 @@ namespace ns2 {
           hashValue: 0n,
           isEnum: true,
           isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               name: "f",
@@ -474,8 +562,10 @@ namespace ns2 {
         {
           name: "ns2::g",
           namespaces: ["ns2"],
-          hashValue: 3084739611297464190n,
+          hashValue: 8225633928078451089n,
           isEnum: false,
+          isEnumClass: false,
+          isNakedStruct: false,
           definitions: [
             {
               type: "uint32",
@@ -496,7 +586,36 @@ namespace ns2 {
             },
           ],
         },
+        {
+          name: "ns2::l",
+          namespaces: ["ns2"],
+          hashValue: 10554418515103042986n, // Verified
+          isEnum: false,
+          isEnumClass: false,
+          isNakedStruct: false,
+          definitions: [
+            {
+              type: "ns2::g",
+              name: "m",
+              isComplex: true,
+            },
+          ],
+        },
       ])
+    })
+  })
+
+  describe("foxglove message definitions", () => {
+    it("should parse foxglove message definitions", () => {
+      const FOXGLOVE_CBUF = join(TEST_DATA_DIR, "foxglove.cbuf")
+      const result = parse(readFileSync(FOXGLOVE_CBUF, "utf-8"))
+      expect(result).toHaveLength(41)
+
+      const [schemaMap, hashMap] = createSchemaMaps(result)
+      const tfs = schemaMap.get("foxglove::FrameTransforms")
+      expect(tfs).toBeDefined()
+      expect(tfs!.hashValue).toEqual(12790125643200664008n)
+      expect(hashMap.get(12790125643200664008n)).toBeDefined()
     })
   })
 })
