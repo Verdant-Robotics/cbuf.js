@@ -70,6 +70,10 @@ namespace ns2 {
     parse(`struct a { short_string b; } struct c { double d; short_string e; int f; a g[2]; }`),
   )
 
+  const [nameToSchema4, hashToSchema4] = createSchemaMaps(
+    parse(`struct a { int b; int c[3] @compact; int d; }`),
+  )
+
   describe("createSchemaMaps", () => {
     it("should create valid schema maps", () => {
       expect(nameToSchema1.size).toEqual(1)
@@ -80,6 +84,9 @@ namespace ns2 {
 
       expect(nameToSchema3.size).toEqual(2)
       expect(hashToSchema3.size).toEqual(2)
+
+      expect(nameToSchema4.size).toEqual(1)
+      expect(hashToSchema4.size).toEqual(1)
     })
   })
 
@@ -153,6 +160,26 @@ namespace ns2 {
         },
       })
       expect(size2).toEqual(CBUF_PREAMBLE_SIZE + 108)
+    })
+
+    it("should calculate the size of a fixed compact array message", () => {
+      const size1 = serializedMessageSize(nameToSchema4, {
+        typeName: "a",
+        timestamp: 0,
+        message: {},
+      })
+      expect(size1).toEqual(CBUF_PREAMBLE_SIZE + 24)
+
+      const size2 = serializedMessageSize(nameToSchema4, {
+        typeName: "a",
+        timestamp: 1,
+        message: {
+          b: 1,
+          c: [2, 3],
+          d: 4,
+        },
+      })
+      expect(size2).toEqual(CBUF_PREAMBLE_SIZE + 24)
     })
   })
 
@@ -334,6 +361,30 @@ namespace ns2 {
         "6\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
       )
     })
+
+    it("should serialize a fixed compact array message", () => {
+      const cbuf = {
+        typeName: "a",
+        timestamp: 0.5,
+        message: {
+          b: 1,
+          c: [3, 4],
+          d: 5,
+        },
+      }
+      const result = serializeMessage(nameToSchema4, cbuf)
+      const view = new DataView(result)
+      expect(new Uint8Array(result, 0, 4)).toEqual(new Uint8Array(CBUF_MAGIC))
+      expect(view.getUint32(4, true)).toEqual(CBUF_PREAMBLE_SIZE + 24)
+      expect(view.getBigUint64(8, true)).toEqual(10084096081252480801n)
+      expect(view.getFloat64(16, true)).toEqual(0.5)
+      expect(view.getInt32(24, true)).toEqual(1)
+      expect(view.getUint32(28, true)).toEqual(2)
+      expect(view.getUint32(32, true)).toEqual(3)
+      expect(view.getUint32(36, true)).toEqual(4)
+      expect(view.getUint32(40, true)).toEqual(0)
+      expect(view.getUint32(44, true)).toEqual(5)
+    })
   })
 
   describe("deserializeMessage", () => {
@@ -430,6 +481,28 @@ namespace ns2 {
       const deserialized = deserializeMessage(
         nameToSchema3,
         hashToSchema3,
+        new Uint8Array(serialized),
+      )
+      expect(deserialized).toEqual(cbuf)
+    })
+
+    it("should round-trip a fixed compact array message", () => {
+      const cbuf = {
+        typeName: "a",
+        size: 48,
+        variant: 0,
+        hashValue: 10084096081252480801n,
+        timestamp: 0.5,
+        message: {
+          b: 1,
+          c: new Int32Array([3, 4]),
+          d: 5,
+        },
+      }
+      const serialized = serializeMessage(nameToSchema4, cbuf)
+      const deserialized = deserializeMessage(
+        nameToSchema4,
+        hashToSchema4,
         new Uint8Array(serialized),
       )
       expect(deserialized).toEqual(cbuf)

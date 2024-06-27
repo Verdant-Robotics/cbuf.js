@@ -176,6 +176,7 @@ function deserializeNakedMessage(
         arrayLength = view.getUint32(offset + innerOffset, true)
         innerOffset += 4
       }
+      const arrayCapacity = field.arrayUpperBound ?? arrayLength
 
       // The byte offset into the underlying ArrayBuffer we are reading from, for constructing
       // typed arrays
@@ -183,62 +184,63 @@ function deserializeNakedMessage(
 
       switch (field.type) {
         case "bool": {
-          const array = []
+          const array: boolean[] = []
           for (let i = 0; i < arrayLength; i++) {
-            array.push(view.getUint8(offset + innerOffset) !== 0)
-            innerOffset += 1
+            array.push(view.getUint8(offset + innerOffset + i) !== 0)
           }
+          innerOffset += arrayCapacity
           output[field.name] = array
           break
         }
         case "uint8":
           output[field.name] = typedArray(Uint8Array, view.buffer, bufferOffset, arrayLength)
-          innerOffset += arrayLength
+          innerOffset += arrayCapacity
           break
         case "int8":
           output[field.name] = typedArray(Int8Array, view.buffer, bufferOffset, arrayLength)
-          innerOffset += arrayLength
+          innerOffset += arrayCapacity
           break
         case "uint16":
           output[field.name] = typedArray(Uint16Array, view.buffer, bufferOffset, arrayLength)
-          innerOffset += arrayLength * 2
+          innerOffset += arrayCapacity * 2
           break
         case "int16":
           output[field.name] = typedArray(Int16Array, view.buffer, bufferOffset, arrayLength)
-          innerOffset += arrayLength * 2
+          innerOffset += arrayCapacity * 2
           break
         case "uint32":
           output[field.name] = typedArray(Uint32Array, view.buffer, bufferOffset, arrayLength)
-          innerOffset += arrayLength * 4
+          innerOffset += arrayCapacity * 4
           break
         case "int32":
           output[field.name] = typedArray(Int32Array, view.buffer, bufferOffset, arrayLength)
-          innerOffset += arrayLength * 4
+          innerOffset += arrayCapacity * 4
           break
         case "uint64":
           output[field.name] = typedArray(BigUint64Array, view.buffer, bufferOffset, arrayLength)
-          innerOffset += arrayLength * 8
+          innerOffset += arrayCapacity * 8
           break
         case "int64":
           output[field.name] = typedArray(BigInt64Array, view.buffer, bufferOffset, arrayLength)
-          innerOffset += arrayLength * 8
+          innerOffset += arrayCapacity * 8
           break
         case "float32":
           output[field.name] = typedArray(Float32Array, view.buffer, bufferOffset, arrayLength)
-          innerOffset += arrayLength * 4
+          innerOffset += arrayCapacity * 4
           break
         case "float64":
           output[field.name] = typedArray(Float64Array, view.buffer, bufferOffset, arrayLength)
-          innerOffset += arrayLength * 8
+          innerOffset += arrayCapacity * 8
           break
         default: {
           // string array or nested struct array. Read each element individually and push onto an
           // array
-          const array = []
+          const array: unknown[] = []
           const fieldOutput: Record<string, unknown> = {}
+          let singleElementSize = 0
           for (let i = 0; i < arrayLength; i++) {
             const curOffset = offset + innerOffset
-            innerOffset += readNonArrayField(
+            singleElementSize = readNonArrayField(
               schemaMap,
               hashMap,
               field,
@@ -247,8 +249,11 @@ function deserializeNakedMessage(
               curOffset,
               fieldOutput,
             )
+            innerOffset += singleElementSize
             array.push(fieldOutput[field.name])
           }
+          // Add the difference between the array length and the array capacity to the inner offset
+          innerOffset += (arrayCapacity - arrayLength) * singleElementSize
           output[field.name] = array
           break
         }
@@ -439,9 +444,14 @@ function serializedNakedMessageSize(
     if (field.isArray === true) {
       // Array field (fixed or variable length)
       const arrayValue = isArray(value) ? value : []
-      let arrayLength = field.arrayLength
+      let arrayLength = field.arrayLength ?? field.arrayUpperBound
       if (arrayLength == undefined) {
         arrayLength = arrayValue.length
+        size += 4
+      }
+
+      if (field.arrayUpperBound != undefined) {
+        // "Compact" arrays are prefixed with a 4-byte length
         size += 4
       }
 
@@ -635,9 +645,11 @@ function serializeNakedMessage(
         view.setUint32(offset + innerOffset, arrayLength, true)
         innerOffset += 4
       }
+      const arrayCapacity = field.arrayUpperBound ?? arrayLength
 
+      let singleElementSize = 0
       for (let i = 0; i < arrayLength; i++) {
-        innerOffset += serializeNonArrayField(
+        singleElementSize = serializeNonArrayField(
           nameToSchema,
           msgdef.namespaces,
           field,
@@ -645,7 +657,11 @@ function serializeNakedMessage(
           view,
           offset + innerOffset,
         )
+        innerOffset += singleElementSize
       }
+
+      // Add the difference between the array length and the array capacity to the inner offset
+      innerOffset += (arrayCapacity - arrayLength) * singleElementSize
     } else {
       innerOffset += serializeNonArrayField(
         nameToSchema,
