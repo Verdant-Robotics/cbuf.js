@@ -21,49 +21,49 @@ describe("serde", () => {
 
   const [nameToSchema2, hashToSchema2] = createSchemaMaps(
     parse(`
-namespace ns1 {
-  struct nested @naked {
-    string text;
+  namespace ns1 {
+    struct nested @naked {
+      string text;
+    }
+
+    struct complex {
+      nested inner;
+      string a;
+      short_string b;
+      bool c;
+      s8 d;
+      s16 e;
+      s32 f;
+      s64 g;
+      u8 h;
+      u16 i;
+      u32 j;
+      u64 k;
+      f32 l;
+      f64 m;
+      string n[];
+      short_string o[] = {"a", "b", "c"};
+      bool p[];
+      s8 q[];
+      s16 r[];
+      s32 s[];
+      s64 t[] = {1, 2, 3};
+      u8 u[];
+      u16 v[];
+      u32 w[];
+      u64 x[];
+      f32 y[];
+      f64 z[];
+    }
   }
 
-  struct complex {
-    nested inner;
-    string a;
-    short_string b;
-    bool c;
-    s8 d;
-    s16 e;
-    s32 f;
-    s64 g;
-    u8 h;
-    u16 i;
-    u32 j;
-    u64 k;
-    f32 l;
-    f64 m;
-    string n[];
-    short_string o[] = {"a", "b", "c"};
-    bool p[];
-    s8 q[];
-    s16 r[];
-    s32 s[];
-    s64 t[] = {1, 2, 3};
-    u8 u[];
-    u16 v[];
-    u32 w[];
-    u64 x[];
-    f32 y[];
-    f64 z[];
-  }
-}
-
-namespace ns2 {
-  struct outer {
-    bool a;
-    ns1::complex b;
-    int c = 42;
-  }
-}`),
+  namespace ns2 {
+    struct outer {
+      bool a;
+      ns1::complex b;
+      int c = 42;
+    }
+  }`),
   )
 
   const [nameToSchema3, hashToSchema3] = createSchemaMaps(
@@ -168,7 +168,7 @@ namespace ns2 {
         timestamp: 0,
         message: {},
       })
-      expect(size1).toEqual(CBUF_PREAMBLE_SIZE + 24)
+      expect(size1).toEqual(CBUF_PREAMBLE_SIZE + 12)
 
       const size2 = serializedMessageSize(nameToSchema4, {
         typeName: "a",
@@ -179,7 +179,7 @@ namespace ns2 {
           d: 4,
         },
       })
-      expect(size2).toEqual(CBUF_PREAMBLE_SIZE + 24)
+      expect(size2).toEqual(CBUF_PREAMBLE_SIZE + 20)
     })
   })
 
@@ -375,34 +375,36 @@ namespace ns2 {
       const result = serializeMessage(nameToSchema4, cbuf)
       const view = new DataView(result)
       expect(new Uint8Array(result, 0, 4)).toEqual(new Uint8Array(CBUF_MAGIC))
-      expect(view.getUint32(4, true)).toEqual(CBUF_PREAMBLE_SIZE + 24)
+      expect(view.getUint32(4, true)).toEqual(CBUF_PREAMBLE_SIZE + 20)
       expect(view.getBigUint64(8, true)).toEqual(10084096081252480801n)
       expect(view.getFloat64(16, true)).toEqual(0.5)
       expect(view.getInt32(24, true)).toEqual(1)
       expect(view.getUint32(28, true)).toEqual(2)
       expect(view.getUint32(32, true)).toEqual(3)
       expect(view.getUint32(36, true)).toEqual(4)
-      expect(view.getUint32(40, true)).toEqual(0)
-      expect(view.getUint32(44, true)).toEqual(5)
+      expect(view.getUint32(40, true)).toEqual(5)
     })
   })
 
   describe("deserializeMessage", () => {
     it("should round-trip a simple message", () => {
+      const size = 42
+      const variant = 9
       const cbuf = {
         typeName: "a",
-        size: 42,
-        variant: 9,
+        size,
+        variant,
         hashValue: hashValue1,
         timestamp: 3,
+        // prefix size = 24
         message: {
-          b: "Hello, world!",
-          c: true,
+          b: "Hello, world!", // size prefix size = 4, string size = 13, total = 17
+          c: true, // size = 1
         },
       }
       const serialized = serializeMessage(nameToSchema1, cbuf)
       // Ensure variant parsing works by modifying the size field to include a variant
-      new DataView(serialized).setUint32(4, (9 << 27) | 42, true)
+      new DataView(serialized).setUint32(4, (variant << 27) | size, true)
       const deserialized = deserializeMessage(
         nameToSchema1,
         hashToSchema1,
@@ -412,10 +414,12 @@ namespace ns2 {
     })
 
     it("should round-trip a complex message", () => {
+      const size = 319
+      const variant = 9
       const cbuf = {
         typeName: "ns2::outer",
-        size: 319,
-        variant: 9,
+        size,
+        variant,
         hashValue: 7694535235651410307n,
         timestamp: 3,
         message: {
@@ -454,7 +458,7 @@ namespace ns2 {
       }
       const serialized = serializeMessage(nameToSchema2, cbuf)
       // Ensure variant parsing works by modifying the size field to include a variant
-      new DataView(serialized).setUint32(4, (9 << 27) | 319, true)
+      new DataView(serialized).setUint32(4, (variant << 27) | size, true)
       const deserialized = deserializeMessage(
         nameToSchema2,
         hashToSchema2,
@@ -466,15 +470,19 @@ namespace ns2 {
     it("should round-trip a fixed complex array message", () => {
       const cbuf = {
         typeName: "c",
+        // magic size = 4
+        // (size + variant) size = 4
         size: 132,
         variant: 0,
+        // hash size = 8
         hashValue: 16648591171689211395n,
+        // timestamp size = 8
         timestamp: 3,
         message: {
-          d: 0,
-          e: "",
-          f: 0,
-          g: [{ b: "x" }, { b: "TestAllFifteenC" }],
+          d: 0, // size = 8
+          e: "", // size = 16
+          f: 0, // size = 4
+          g: [{ b: "x" }, { b: "TestAllFifteenC" }], // size = 2 * (24 + 16)
         },
       }
       const serialized = serializeMessage(nameToSchema3, cbuf)
@@ -489,7 +497,7 @@ namespace ns2 {
     it("should round-trip a fixed compact array message", () => {
       const cbuf = {
         typeName: "a",
-        size: 48,
+        size: 44,
         variant: 0,
         hashValue: 10084096081252480801n,
         timestamp: 0.5,
