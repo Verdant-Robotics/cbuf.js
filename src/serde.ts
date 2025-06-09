@@ -176,7 +176,6 @@ function deserializeNakedMessage(
         arrayLength = view.getUint32(offset + innerOffset, true)
         innerOffset += 4
       }
-      const arrayCapacity = field.arrayUpperBound ?? arrayLength
 
       // The byte offset into the underlying ArrayBuffer we are reading from, for constructing
       // typed arrays
@@ -188,49 +187,49 @@ function deserializeNakedMessage(
           for (let i = 0; i < arrayLength; i++) {
             array.push(view.getUint8(offset + innerOffset + i) !== 0)
           }
-          innerOffset += arrayCapacity
+          innerOffset += arrayLength
           output[field.name] = array
           break
         }
         case "uint8":
           output[field.name] = typedArray(Uint8Array, view.buffer, bufferOffset, arrayLength)
-          innerOffset += arrayCapacity
+          innerOffset += arrayLength
           break
         case "int8":
           output[field.name] = typedArray(Int8Array, view.buffer, bufferOffset, arrayLength)
-          innerOffset += arrayCapacity
+          innerOffset += arrayLength
           break
         case "uint16":
           output[field.name] = typedArray(Uint16Array, view.buffer, bufferOffset, arrayLength)
-          innerOffset += arrayCapacity * 2
+          innerOffset += arrayLength * 2
           break
         case "int16":
           output[field.name] = typedArray(Int16Array, view.buffer, bufferOffset, arrayLength)
-          innerOffset += arrayCapacity * 2
+          innerOffset += arrayLength * 2
           break
         case "uint32":
           output[field.name] = typedArray(Uint32Array, view.buffer, bufferOffset, arrayLength)
-          innerOffset += arrayCapacity * 4
+          innerOffset += arrayLength * 4
           break
         case "int32":
           output[field.name] = typedArray(Int32Array, view.buffer, bufferOffset, arrayLength)
-          innerOffset += arrayCapacity * 4
+          innerOffset += arrayLength * 4
           break
         case "uint64":
           output[field.name] = typedArray(BigUint64Array, view.buffer, bufferOffset, arrayLength)
-          innerOffset += arrayCapacity * 8
+          innerOffset += arrayLength * 8
           break
         case "int64":
           output[field.name] = typedArray(BigInt64Array, view.buffer, bufferOffset, arrayLength)
-          innerOffset += arrayCapacity * 8
+          innerOffset += arrayLength * 8
           break
         case "float32":
           output[field.name] = typedArray(Float32Array, view.buffer, bufferOffset, arrayLength)
-          innerOffset += arrayCapacity * 4
+          innerOffset += arrayLength * 4
           break
         case "float64":
           output[field.name] = typedArray(Float64Array, view.buffer, bufferOffset, arrayLength)
-          innerOffset += arrayCapacity * 8
+          innerOffset += arrayLength * 8
           break
         default: {
           // string array or nested struct array. Read each element individually and push onto an
@@ -252,8 +251,6 @@ function deserializeNakedMessage(
             innerOffset += singleElementSize
             array.push(fieldOutput[field.name])
           }
-          // Add the difference between the array length and the array capacity to the inner offset
-          innerOffset += (arrayCapacity - arrayLength) * singleElementSize
           output[field.name] = array
           break
         }
@@ -442,17 +439,57 @@ function serializedNakedMessageSize(
     const value = message[field.name] ?? field.defaultValue
 
     if (field.isArray === true) {
-      // Array field (fixed or variable length)
+      // If undefined (due to being uninitialized), use an empty array
       const arrayValue = isArray(value) ? value : []
-      let arrayLength = field.arrayLength ?? field.arrayUpperBound
-      if (arrayLength == undefined) {
-        arrayLength = arrayValue.length
-        size += 4
-      }
 
-      if (field.arrayUpperBound != undefined) {
-        // "Compact" arrays are prefixed with a 4-byte length
-        size += 4
+      // There are 3 cases for an array cbuf definition:
+      //
+      // 1. "u32 my_array[];"
+      //    - dynamic-size non-compact array
+      //    - field.arrayLength is undefined
+      //    - field.arrayLengthUpperBound is undefined
+      //    - we need to add 4 bytes for the length prefix
+      //
+      // 2. "u32 my_array[69];"
+      //    - fixed-size array
+      //    - field.arrayLength is 69
+      //    - field.arrayLengthUpperBound is undefined
+      //
+      // 3. "u32 my_array[69]; @compact"
+      //    - dynamic-size array with a maximum length of 69
+      //    - field.arrayLength is undefined
+      //    - field.arrayLengthUpperBound is 69
+      //    - we need to add 4 bytes for the length prefix
+
+      let arrayLength
+      switch (true) {
+        // Dynamic-size non-compact array
+        case field.arrayLength == undefined && field.arrayUpperBound == undefined: {
+          arrayLength = arrayValue.length
+          size += 4 // Add 4 bytes for the length prefix
+          break
+        }
+        // Fixed-size array
+        case field.arrayLength != undefined && field.arrayUpperBound == undefined: {
+          arrayLength = field.arrayLength
+          break
+        }
+        // Dynamic-size compact array with an upper bound
+        case field.arrayLength == undefined && field.arrayUpperBound != undefined: {
+          arrayLength = arrayValue.length
+          size += 4 // Add 4 bytes for the length prefix
+          if (arrayValue.length > field.arrayUpperBound) {
+            throw new Error(
+              `Array length ${arrayLength} for field ${field.name} in message ${msgdef.name} exceeds upper bound ${field.arrayUpperBound}`,
+            )
+          }
+          break
+        }
+        default: {
+          throw new Error(
+            `Invalid array definition for field ${field.name} in message ${msgdef.name}: arrayLength=${field.arrayLength}, arrayUpperBound=${field.arrayUpperBound}`,
+          )
+        }
       }
 
       switch (field.type) {
@@ -637,15 +674,60 @@ function serializeNakedMessage(
     const value = message[field.name] ?? field.defaultValue
 
     if (field.isArray === true) {
-      // Array field (fixed or variable length)
+      // If undefined (due to being uninitialized), use an empty array
       const arrayValue = isArray(value) ? value : []
-      let arrayLength = field.arrayLength
-      if (arrayLength == undefined) {
-        arrayLength = arrayValue.length
-        view.setUint32(offset + innerOffset, arrayLength, true)
-        innerOffset += 4
+
+      // There are 3 cases for an array cbuf definition:
+      //
+      // 1. "u32 my_array[];"
+      //    - dynamic-size non-compact array
+      //    - field.arrayLength is undefined
+      //    - field.arrayLengthUpperBound is undefined
+      //    - we need to add 4 bytes for the length prefix
+      //
+      // 2. "u32 my_array[69];"
+      //    - fixed-size array
+      //    - field.arrayLength is 69
+      //    - field.arrayLengthUpperBound is undefined
+      //
+      // 3. "u32 my_array[69]; @compact"
+      //    - dynamic-size array with a maximum length of 69
+      //    - field.arrayLength is undefined
+      //    - field.arrayLengthUpperBound is 69
+      //    - we need to add 4 bytes for the length prefix
+
+      let arrayLength
+      switch (true) {
+        // Dynamic-size non-compact array
+        case field.arrayLength == undefined && field.arrayUpperBound == undefined: {
+          arrayLength = arrayValue.length
+          view.setUint32(offset + innerOffset, arrayLength, true)
+          innerOffset += 4 // Add 4 bytes for the length prefix
+          break
+        }
+        // Fixed-size array
+        case field.arrayLength != undefined && field.arrayUpperBound == undefined: {
+          arrayLength = field.arrayLength
+          break
+        }
+        // Dynamic-size compact array with an upper bound
+        case field.arrayLength == undefined && field.arrayUpperBound != undefined: {
+          arrayLength = arrayValue.length
+          view.setUint32(offset + innerOffset, arrayLength, true)
+          innerOffset += 4 // Add 4 bytes for the length prefix
+          if (arrayValue.length > field.arrayUpperBound) {
+            throw new Error(
+              `Array length ${arrayLength} for field ${field.name} in message ${msgdef.name} exceeds upper bound ${field.arrayUpperBound}`,
+            )
+          }
+          break
+        }
+        default: {
+          throw new Error(
+            `Invalid array definition for field ${field.name} in message ${msgdef.name}: arrayLength=${field.arrayLength}, arrayUpperBound=${field.arrayUpperBound}`,
+          )
+        }
       }
-      const arrayCapacity = field.arrayUpperBound ?? arrayLength
 
       let singleElementSize = 0
       for (let i = 0; i < arrayLength; i++) {
@@ -659,9 +741,6 @@ function serializeNakedMessage(
         )
         innerOffset += singleElementSize
       }
-
-      // Add the difference between the array length and the array capacity to the inner offset
-      innerOffset += (arrayCapacity - arrayLength) * singleElementSize
     } else {
       innerOffset += serializeNonArrayField(
         nameToSchema,
