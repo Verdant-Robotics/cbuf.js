@@ -1,6 +1,6 @@
 {
   "name": "@verdant-robotics/cbuf",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "A parser and serializer/deserializer for the cbuf Interface Definition Language (IDL)",
   "license": "MIT",
   "repository": {
